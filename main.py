@@ -386,8 +386,12 @@ class TranslationService:
     
     def _translate_libretranslate(self, word, from_lang='es', to_lang='en'):
         """Translate using LibreTranslate API"""
-        # Using public LibreTranslate instance - can be changed if needed
-        url = "https://libretranslate.org/translate"
+        # Use more reliable public LibreTranslate instances
+        urls = [
+            "https://translate.argosopentech.com/translate",
+            "https://libretranslate.de/translate",
+            "https://libretranslate.com/translate"
+        ]
         
         payload = {
             "q": word,
@@ -398,11 +402,25 @@ class TranslationService:
         
         headers = {"Content-Type": "application/json"}
         
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
-        data = response.json()
+        for url in urls:
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=5)
+                
+                # Check if we got a valid response
+                if response.status_code != 200:
+                    logger.debug(f"LibreTranslate API error: {response.status_code} from {url}")
+                    continue
+                    
+                # Try to parse JSON, handle empty responses
+                if response.text.strip():
+                    data = response.json()
+                    if 'translatedText' in data:
+                        return data['translatedText'].strip()
+            except Exception as e:
+                logger.error(f"Error with LibreTranslate API ({url}): {e}")
+                # Continue trying with next URL
         
-        if 'translatedText' in data:
-            return data['translatedText'].strip()
+        # If all URLs failed, return None
         return None
     
     def _translate_lingva(self, word, from_lang='es', to_lang='en'):
