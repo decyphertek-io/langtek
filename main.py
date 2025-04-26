@@ -8,6 +8,11 @@ import time
 import urllib.request
 import subprocess
 import logging
+import sqlite3
+import requests
+import html
+import sys
+import random
 from io import BytesIO
 from PIL import Image as PILImage
 from kivy.app import App
@@ -27,7 +32,6 @@ from kivy.clock import Clock
 from kivy.utils import platform
 from functools import partial
 from kivy.metrics import dp
-import html
 from pyglossary.glossary_v2 import Glossary
 
 # Setup logging to file
@@ -44,230 +48,76 @@ class TranslationService:
         self.from_lang = 'es'
         self.to_lang = 'en'
         self.word_dict = {}
-        self.translator_available = False
+        self.translator_available = True  # Always available with Google Translate
         self.debug_mode = True  # Enable debugging
-        self.used_dictionary = None  # Track which dictionary was loaded
+        self.used_dictionary = "Google Translate + SQLite"
         
-        logger.info("Initializing TranslationService")
+        logger.info("Initializing TranslationService with Google Translate")
         
-        # Initialize pyglossary
-        Glossary.init()
+        # Initialize SQLite database
+        self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
+        self.db_file = os.path.join(self.db_dir, 'translations.db')
+        self.init_database()
         
-        # Check for SQLite database first (preferred method)
-        db_path = os.path.join(os.path.dirname(__file__), 'db', 'dictionary.db')
-        if os.path.exists(db_path):
-            try:
-                import sqlite3
-                self.db_conn = sqlite3.connect(db_path)
-                self.db_cursor = self.db_conn.cursor()
-                
-                # Test the database
-                self.db_cursor.execute("SELECT COUNT(*) FROM translations")
-                count = self.db_cursor.fetchone()[0]
-                
-                if count > 0:
-                    logger.info(f"Found SQLite dictionary with {count} translations")
-                    print(f"Found SQLite dictionary with {count} translations")
-                    self.translator_available = True
-                    self.used_dictionary = f"SQLite database: {os.path.basename(db_path)}"
-                    self.translation_method = "sqlite"
-                    # No need to load the basic dictionary or other dictionaries
-                    return
-            except Exception as e:
-                logger.error(f"Error connecting to SQLite database: {e}")
-                print(f"Error connecting to SQLite database: {e}")
+        # Add some basic common words to avoid hitting Google Translate too much
+        self.add_common_words()
         
-        # If SQLite database not available, fall back to other methods
-        # Create a basic manual dictionary of common Spanish words
-        self.create_manual_dictionary()
-        self.translation_method = "dictionary"
-        
-        # First try to load the master dictionary if it exists
-        master_dict = os.path.join(os.path.dirname(__file__), 'db', 'master-es-en.data')
-        if os.path.exists(master_dict):
-            logger.info(f"Found master dictionary at {master_dict}")
-            print(f"Found master dictionary at {master_dict}")
-            self.load_data_dictionary(master_dict)
-            if self.translator_available:
-                self.used_dictionary = f"Master dictionary: {os.path.basename(master_dict)}"
-                logger.info(f"Successfully loaded master dictionary: {master_dict}")
-                print(f"Successfully loaded master dictionary: {master_dict}")
-                return  # No need to load other dictionaries
-        
-        # Look for dictionary in various locations and formats
-        dict_paths = [
-            # Tab-separated data file format (preferred due to simplicity)
-            os.path.join(os.path.dirname(__file__), 'db', 'es-en.data'),
-            '/home/adminotaur/Documents/git/langtek/db/es-en.data',
-            
-            # StarDict format
-            os.path.join(os.path.dirname(__file__), 'db', 'spa-eng', 'spa-eng.ifo'),
-            '/home/adminotaur/Documents/git/langtek/db/spa-eng/spa-eng.ifo',
-            
-            # SLOB format
-            os.path.join(os.path.dirname(__file__), 'db', 'freedict-spa-eng-0.3.1.slob'),
-            '/home/adminotaur/Documents/git/langtek/db/freedict-spa-eng-0.3.1.slob',
-            
-            # MOBI format
-            os.path.join(os.path.dirname(__file__), 'db', 'Spanish-English-Dictionary.mobi'),
-            '/home/adminotaur/Documents/git/langtek/db/Spanish-English-Dictionary.mobi'
-        ]
-        
-        for dict_path in dict_paths:
-            if os.path.exists(dict_path):
-                logger.info(f"Found dictionary at {dict_path}")
-                print(f"Found dictionary at {dict_path}")
-                try:
-                    if dict_path.endswith('.data'):
-                        # Handle .data format (tab-separated values)
-                        self.load_data_dictionary(dict_path)
-                        if self.translator_available:
-                            self.used_dictionary = f".data file: {os.path.basename(dict_path)}"
-                            logger.info(f"Successfully loaded .data dictionary: {dict_path}")
-                            print(f"Successfully loaded .data dictionary: {dict_path}")
-                            break
-                    else:
-                        # Handle other formats with PyGlossary
-                        try:
-                            self.glossary = Glossary()
-                            # Use direct data access instead of entry objects
-                            success = self.glossary.read(dict_path)
-                            if not success:
-                                logger.warning(f"Failed to read dictionary: {dict_path}")
-                                print(f"Failed to read dictionary: {dict_path}")
-                                continue
-                            
-                            logger.info(f"Successfully loaded dictionary file: {dict_path}")
-                            print(f"Successfully loaded dictionary file: {dict_path}")
-                            self.translator_available = True
-                            format_name = os.path.splitext(dict_path)[1]
-                            self.used_dictionary = f"{format_name} file: {os.path.basename(dict_path)}"
-                            break
-                        except Exception as glossary_error:
-                            logger.error(f"Error with glossary for {dict_path}: {glossary_error}")
-                            print(f"Error with glossary for {dict_path}: {glossary_error}")
-                            continue
-                except Exception as e:
-                    logger.error(f"Error loading dictionary {dict_path}: {e}")
-                    print(f"Error loading dictionary {dict_path}: {e}")
-                    
-        if not self.translator_available:
-            logger.warning("No dictionary found or loaded. Using basic built-in dictionary.")
-            print("No dictionary found or loaded. Using basic built-in dictionary.")
-        
-        # Test dictionary even if we're just using the manual one
+        # Run a test with common Spanish words to verify everything is working
         self.test_dictionary()
+        
+    def init_database(self):
+        """Initialize the SQLite database for translations"""
+        try:
+            # Create directory if it doesn't exist
+            os.makedirs(self.db_dir, exist_ok=True)
             
-    def create_manual_dictionary(self):
-        """Create a basic manual dictionary of common Spanish words"""
-        logger.info("Creating basic Spanish-English dictionary")
-        print("Creating basic Spanish-English dictionary")
-        basic_dict = {
+            # Connect to the database
+            self.db_conn = sqlite3.connect(self.db_file)
+            self.db_cursor = self.db_conn.cursor()
+            
+            # Create table if it doesn't exist
+            self.db_cursor.execute('''
+            CREATE TABLE IF NOT EXISTS translations (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL,
+                translation TEXT NOT NULL,
+                source TEXT DEFAULT 'google',
+                date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
+            
+            # Create index on word for faster lookups
+            self.db_cursor.execute('CREATE INDEX IF NOT EXISTS idx_word ON translations(word)')
+            
+            # Commit changes
+            self.db_conn.commit()
+            
+            logger.info(f"Database initialized at {self.db_file}")
+            print(f"Database initialized at {self.db_file}")
+            
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
+            print(f"Error initializing database: {e}")
+            self.translator_available = False
+    
+    def add_common_words(self):
+        """Add common Spanish words to avoid hitting Google Translate too much"""
+        common_words = {
             "hola": "hello",
-            "adios": "goodbye",
+            "adiós": "goodbye",
             "gracias": "thank you",
             "por favor": "please",
-            "si": "yes",
+            "sí": "yes",
             "no": "no",
             "buenos días": "good morning",
             "buenas tardes": "good afternoon",
             "buenas noches": "good evening",
-            "como estás": "how are you",
+            "cómo estás": "how are you",
             "bien": "good",
             "mal": "bad",
             "casa": "house",
             "perro": "dog",
             "gato": "cat",
-            "hombre": "man",
-            "mujer": "woman",
-            "niño": "boy",
-            "niña": "girl",
-            "amigo": "friend",
-            "familia": "family",
-            "comida": "food",
-            "agua": "water",
-            "vino": "wine",
-            "cerveza": "beer",
-            "pan": "bread",
-            "carne": "meat",
-            "pescado": "fish",
-            "fruta": "fruit",
-            "verdura": "vegetable",
-            "leche": "milk",
-            "café": "coffee",
-            "té": "tea",
-            "azúcar": "sugar",
-            "sal": "salt",
-            "pimienta": "pepper",
-            "caliente": "hot",
-            "frío": "cold",
-            "grande": "big",
-            "pequeño": "small",
-            "bueno": "good",
-            "malo": "bad",
-            "feliz": "happy",
-            "triste": "sad",
-            "rápido": "fast",
-            "lento": "slow",
-            "nuevo": "new",
-            "viejo": "old",
-            "alto": "tall",
-            "bajo": "short",
-            "gordo": "fat",
-            "delgado": "thin",
-            "bonito": "pretty",
-            "feo": "ugly",
-            "día": "day",
-            "noche": "night",
-            "mañana": "morning",
-            "tarde": "afternoon",
-            "semana": "week",
-            "mes": "month",
-            "año": "year",
-            "hora": "hour",
-            "minuto": "minute",
-            "segundo": "second",
-            "hoy": "today",
-            "ayer": "yesterday",
-            "mañana": "tomorrow",
-            "tiempo": "time",
-            "padre": "father",
-            "madre": "mother",
-            "hermano": "brother",
-            "hermana": "sister",
-            "hijo": "son",
-            "hija": "daughter",
-            "abuelo": "grandfather",
-            "abuela": "grandmother",
-            "tío": "uncle",
-            "tía": "aunt",
-            "primo": "cousin",
-            "esposo": "husband",
-            "esposa": "wife",
-            "amor": "love",
-            "odio": "hate",
-            "vida": "life",
-            "muerte": "death",
-            "trabajo": "work",
-            "escuela": "school",
-            "universidad": "university",
-            "hospital": "hospital",
-            "tienda": "store",
-            "restaurante": "restaurant",
-            "banco": "bank",
-            "iglesia": "church",
-            "calle": "street",
-            "ciudad": "city",
-            "país": "country",
-            "mundo": "world",
-            "uno": "one",
-            "dos": "two",
-            "tres": "three",
-            "cuatro": "four",
-            "cinco": "five",
-            "papa": "potato",
-            "Francia": "France",
-            "Ucrania": "Ukraine",
             "libro": "book",
             "de": "of",
             "la": "the",
@@ -281,25 +131,34 @@ class TranslationService:
             "su": "his/her",
             "mi": "my",
             "tu": "your",
-            "líder": "leader"
+            "líder": "leader",
+            "papa": "potato",
+            "Francia": "France",
+            "Ucrania": "Ukraine"
         }
         
-        # Add them to the dictionary
-        for spanish, english in basic_dict.items():
-            self.word_dict[spanish.lower()] = english
+        count = 0
+        for spanish, english in common_words.items():
+            try:
+                self.db_cursor.execute(
+                    'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                    (spanish.lower(), english, 'common')
+                )
+                count += 1
+            except:
+                pass
         
-        self.translator_available = True
-        logger.info(f"Added {len(basic_dict)} words to manual dictionary")
-            
+        self.db_conn.commit()
+        logger.info(f"Added {count} common words to database")
+        print(f"Added {count} common words to database")
+    
     def test_dictionary(self):
-        """Test the dictionary with some common Spanish words"""
-        logger.info("=== DICTIONARY TEST ===")
-        logger.info(f"Using dictionary: {self.used_dictionary}")
-        print("\n=== DICTIONARY TEST ===")
-        print(f"Using dictionary: {self.used_dictionary}")
+        """Test the translation service with some common Spanish words"""
+        print("\n=== TRANSLATION SERVICE TEST ===")
+        print(f"Using: {self.used_dictionary}")
         print("Testing translation of common Spanish words:")
         
-        test_words = ["hola", "casa", "perro", "gato", "libro", "amor", "vida", "bueno", "malo", "comida", "papa", "Francia", "Ucrania", "líder", "de", "la"]
+        test_words = ["hola", "casa", "perro", "gato", "libro", "papa", "Francia", "Ucrania", "líder", "de", "la"]
         max_word_len = max(len(word) for word in test_words)
         
         for word in test_words:
@@ -313,134 +172,62 @@ class TranslationService:
             
         logger.info("======================")
         print("======================\n")
-            
-    def load_data_dictionary(self, file_path):
-        """Load a dictionary from a tab-separated .data file"""
-        try:
-            logger.info(f"Loading tab-separated dictionary file: {file_path}")
-            print(f"Loading tab-separated dictionary file: {file_path}")
-            count = 0
-            with open(file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    parts = line.split('\t')
-                    if len(parts) >= 2:
-                        word = parts[0].strip()
-                        definition = parts[1].strip()
-                        if word and definition:
-                            self.word_dict[word.lower()] = definition
-                            count += 1
-                            if count >= 50000:  # Limit entries in memory
-                                break
-            
-            if count > 0:
-                self.translator_available = True
-            logger.info(f"Loaded {count} words from {file_path}")
-            print(f"Loaded {count} words from {file_path}")
-        except Exception as e:
-            logger.error(f"Error loading .data dictionary {file_path}: {e}")
-            print(f"Error loading .data dictionary {file_path}: {e}")
-                
+    
     def lookup_word(self, word):
+        """Look up a word in the database or online if not found"""
         if not word:
             logger.debug(f"Empty word passed to lookup_word")
             return "[no translation found]"
         
         try:
-            # If using SQLite database
-            if hasattr(self, 'translation_method') and self.translation_method == "sqlite":
-                word_lower = word.lower()
-                self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
-                result = self.db_cursor.fetchone()
-                
-                if result:
-                    if self.debug_mode:
-                        logger.debug(f"Found '{word}' in SQLite database")
-                        print(f"DEBUG: Found '{word}' in SQLite database")
-                    return result[0]
-                
-                # If not found in database and we have a db.py script, try online lookup
-                db_py_path = os.path.join(os.path.dirname(__file__), 'db', 'db.py')
-                if os.path.exists(db_py_path):
-                    logger.debug(f"Attempting online lookup for '{word}'")
-                    print(f"DEBUG: Attempting online lookup for '{word}'")
-                    try:
-                        import subprocess
-                        result = subprocess.run(
-                            ['python3', db_py_path, '--online', word_lower],
-                            capture_output=True, text=True
-                        )
-                        if result.returncode == 0 and 'Found online:' in result.stdout:
-                            # The database should now have the word, try to get it
-                            self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
-                            updated_result = self.db_cursor.fetchone()
-                            
-                            if updated_result:
-                                logger.debug(f"Added '{word}' to database from online lookup")
-                                print(f"DEBUG: Added '{word}' to database from online lookup")
-                                return updated_result[0]
-                    except Exception as online_error:
-                        logger.error(f"Error during online lookup: {online_error}")
-                
-                if self.debug_mode:
-                    logger.debug(f"No translation found for '{word}' in SQLite database")
-                    print(f"DEBUG: No translation found for '{word}' in SQLite database")
-                return "[no translation found]"
-                
-            # If using dictionary memory cache
-            # First check in cache
-            if word.lower() in self.word_dict:
-                if self.debug_mode:
-                    logger.debug(f"Found '{word}' in dictionary cache")
-                    print(f"DEBUG: Found '{word}' in dictionary cache")
-                return self.word_dict[word.lower()]
+            word_lower = word.lower().strip()
             
-            # If not in cache and glossary is available, try lookup in glossary
-            if hasattr(self, 'glossary'):
-                try:
-                    if self.debug_mode:
-                        logger.debug(f"Looking up '{word}' in glossary")
-                        print(f"DEBUG: Looking up '{word}' in glossary")
-                    result = self.glossary.lookup(word)
-                    if result:
-                        definition = result
-                        # Store in cache for future lookups
-                        self.word_dict[word.lower()] = definition
-                        logger.debug(f"Found '{word}' in glossary: {definition}")
-                        return definition
-                except Exception as lookup_error:
-                    if self.debug_mode:
-                        logger.error(f"Error during glossary lookup for '{word}': {lookup_error}")
-                        print(f"DEBUG: Error during glossary lookup for '{word}': {lookup_error}")
+            # First check in memory cache (fastest)
+            if word_lower in self.word_dict:
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' in memory cache")
+                    print(f"DEBUG: Found '{word}' in memory cache")
+                return self.word_dict[word_lower]
             
-            # If not found and we have a master dictionary, try to look it up online and add it
-            if os.path.exists(os.path.join(os.path.dirname(__file__), 'db', 'master-es-en.data')):
+            # Next check in SQLite database
+            self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
+            result = self.db_cursor.fetchone()
+            
+            if result:
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' in database")
+                    print(f"DEBUG: Found '{word}' in database")
+                
+                # Add to memory cache for faster future lookups
+                self.word_dict[word_lower] = result[0]
+                return result[0]
+            
+            # If not found locally, look up online with Google Translate
+            if self.debug_mode:
+                logger.debug(f"Looking up '{word}' online")
+                print(f"DEBUG: Looking up '{word}' online")
+                
+            translation = self.google_translate(word_lower)
+            
+            if translation:
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' online: {translation}")
+                    print(f"DEBUG: Found '{word}' online: {translation}")
+                
+                # Save to database
                 try:
-                    # Only look up online if we have db.py available
-                    if os.path.exists(os.path.join(os.path.dirname(__file__), 'db', 'db.py')):
-                        logger.debug(f"Attempting online lookup for '{word}'")
-                        print(f"DEBUG: Attempting online lookup for '{word}'")
-                        import subprocess
-                        result = subprocess.run(
-                            ['python3', os.path.join(os.path.dirname(__file__), 'db', 'db.py'), '--online', word],
-                            capture_output=True, text=True
-                        )
-                        if result.returncode == 0 and 'Found online:' in result.stdout:
-                            # Extract the translation
-                            lines = result.stdout.splitlines()
-                            for line in lines:
-                                if 'Found online:' in line:
-                                    parts = line.split("'")
-                                    if len(parts) >= 4:
-                                        translation = parts[3]
-                                        self.word_dict[word.lower()] = translation
-                                        logger.debug(f"Found '{word}' online: {translation}")
-                                        print(f"DEBUG: Found '{word}' online: {translation}")
-                                        return translation
-                except Exception as online_error:
-                    logger.error(f"Error during online lookup attempt for '{word}': {online_error}")
+                    self.db_cursor.execute(
+                        'INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                        (word_lower, translation, 'google')
+                    )
+                    self.db_conn.commit()
+                except Exception as db_error:
+                    logger.error(f"Error saving translation to database: {db_error}")
+                
+                # Add to memory cache
+                self.word_dict[word_lower] = translation
+                
+                return translation
             
             if self.debug_mode:
                 logger.debug(f"No translation found for '{word}'")
@@ -451,7 +238,47 @@ class TranslationService:
                 logger.error(f"Lookup error for '{word}': {e}")
                 print(f"DEBUG: Lookup error for '{word}': {e}")
             return "[lookup error]"
-
+    
+    def google_translate(self, word, from_lang='es', to_lang='en'):
+        """Look up a word using Google Translate API (or free alternative)"""
+        try:
+            # Using MyMemory API (free, no authentication required)
+            url = f"https://api.mymemory.translated.net/get?q={word}&langpair={from_lang}|{to_lang}"
+            
+            response = requests.get(url, timeout=5)
+            data = response.json()
+            
+            if 'responseData' in data and 'translatedText' in data['responseData']:
+                translation = data['responseData']['translatedText']
+                # Unescape HTML entities and clean up the translation
+                translation = html.unescape(translation).strip()
+                
+                # Check if matches original word
+                if translation.lower() == word.lower():
+                    # Try an alternative translation if available
+                    if 'matches' in data and len(data['matches']) > 0:
+                        for match in data['matches']:
+                            if 'translation' in match and match['translation'].lower() != word.lower():
+                                translation = match['translation']
+                                break
+                
+                return translation
+            else:
+                # Check if there is an error message
+                if 'responseStatus' in data and data['responseStatus'] != 200:
+                    logger.error(f"Translation API error: {data.get('responseDetails', 'Unknown error')}")
+                return None
+                
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Network error during translation: {e}")
+            return None
+        except ValueError as e:
+            logger.error(f"JSON parsing error during translation: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error during translation: {e}")
+            return None
+    
     def translate_text(self, text):
         if not text:
             return text
@@ -522,14 +349,14 @@ class TranslationService:
         self.to_lang = to_lang
         logger.info(f"Using {from_lang}-{to_lang} dictionary for translations")
         print(f"Using {from_lang}-{to_lang} dictionary for translations")
-
+    
     def __del__(self):
-        # Close SQLite connection if it exists
-        if hasattr(self, 'db_conn') and self.db_conn:
-            try:
+        """Close database connection"""
+        try:
+            if hasattr(self, 'db_conn') and self.db_conn:
                 self.db_conn.close()
-            except:
-                pass
+        except:
+            pass
 
 # Core RSS functionality
 class RSSParser:

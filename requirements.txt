@@ -6,4 +6,5 @@ pyglossary
 PyICU
 requests
 beautifulsoup4
+html-sanitizer
 

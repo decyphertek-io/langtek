@@ -1,5 +1,0 @@
-# For dictionary management
-lxml
-html5lib
-python-lzo
-marisa-trie
