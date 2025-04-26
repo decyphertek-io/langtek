@@ -42,7 +42,8 @@ class TranslationService:
         # Look for dictionary in various locations
         dict_paths = [
             os.path.join(os.path.dirname(__file__), 'db', 'Spanish-English-Dictionary.mobi'),
-            # SLOB format removed, focusing only on MOBI as requested
+            # Try absolute path as fallback
+            '/home/adminotaur/Documents/git/langtek/db/Spanish-English-Dictionary.mobi',
         ]
         
         for dict_path in dict_paths:
@@ -50,7 +51,10 @@ class TranslationService:
                 print(f"Found dictionary at {dict_path}")
                 try:
                     self.glossary = Glossary()
-                    self.glossary.read(dict_path)
+                    success = self.glossary.read(dict_path)
+                    if not success:
+                        print(f"Failed to read dictionary: {dict_path}")
+                        continue
                     
                     # Cache first 10000 common words for faster access
                     count = 0
@@ -70,7 +74,7 @@ class TranslationService:
                     print(f"Error loading dictionary {dict_path}: {e}")
         
         if not self.translator_available:
-            print("No dictionary found. Translation will not be available.")
+            print("No dictionary found or loaded. Translation will not be available.")
 
     def translate_text(self, text):
         if not text or not self.translator_available:
@@ -120,12 +124,15 @@ class TranslationService:
                 return self.word_dict[word.lower()]
             
             # Try lookup in glossary
-            result = self.glossary.lookup(word)
-            if result:
-                definition = result
-                # Store in cache for future lookups
-                self.word_dict[word.lower()] = definition
-                return definition
+            try:
+                result = self.glossary.lookup(word)
+                if result:
+                    definition = result
+                    # Store in cache for future lookups
+                    self.word_dict[word.lower()] = definition
+                    return definition
+            except Exception as lookup_error:
+                print(f"Error during glossary lookup for '{word}': {lookup_error}")
                 
             return "[no translation found]"
         except Exception as e:
