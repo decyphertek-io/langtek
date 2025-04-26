@@ -1262,6 +1262,17 @@ class RSSApp(App):
                                          self.add_article_card(e, t, tt, i, f, feed_data['url']), 0)
     
     def add_article_card(self, article, title, title_translation, image_url, feed_title, feed_url):
+        # Check if card already exists
+        for child in self.root.ids.feed_grid.children[:]:
+            if (isinstance(child, ArticleCard) and 
+                child.article_link == article.get('link', '#')):
+                # Update existing card instead of creating a duplicate
+                english_line = self.translator.word_for_word_line(title)
+                stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
+                child.article_title = stacked_title
+                child.thumbnail_url = image_url
+                return
+                
         # Stack Spanish and English translation in the title label, English in gray italics
         english_line = self.translator.word_for_word_line(title)
         stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
@@ -1514,9 +1525,26 @@ class RSSApp(App):
                 stacked_content = '\n'.join(translated_lines)
                 self.article_screen.article_content = stacked_content
         
-        # Also refresh the main feed display
-        self.root.ids.feed_grid.clear_widgets()
-        self.load_all_feeds(0)
+        # DON'T reload all feeds - this causes duplicate windows
+        # Instead, just update the existing widgets
+        self._update_feed_widgets()
+    
+    def _update_feed_widgets(self):
+        """Update existing feed widgets with new translations without creating duplicates"""
+        if not hasattr(self.root.ids, 'feed_grid'):
+            return
+            
+        # Loop through existing article cards and update translations
+        for child in self.root.ids.feed_grid.children[:]:
+            if isinstance(child, ArticleCard):
+                title = child.article_title.split('\n')[0] if '\n' in child.article_title else child.article_title
+                # Strip any Kivy markup
+                title = re.sub(r'\[.*?\]', '', title).strip()
+                
+                # Get updated translation
+                english_line = self.translator.word_for_word_line(title)
+                stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
+                child.article_title = stacked_title
 
     def show_db_editor(self, menu=None):
         """Show the database editor screen"""
@@ -1543,8 +1571,11 @@ class RSSApp(App):
             return
             
         # Clear existing items
-        self.db_editor_screen.ids.translation_list.clear_widgets()
-        self.db_editor_screen.ids.translation_details.clear_widgets()
+        if hasattr(self.db_editor_screen.ids, 'translation_list'):
+            self.db_editor_screen.ids.translation_list.clear_widgets()
+        
+        if hasattr(self.db_editor_screen.ids, 'translation_details'):
+            self.db_editor_screen.ids.translation_details.clear_widgets()
         
         try:
             # Get all translations
@@ -1602,11 +1633,13 @@ class RSSApp(App):
                 self.db_editor_screen.ids.translation_details.add_widget(source_label)
                 
             # Update status
-            self.db_editor_screen.ids.status_label.text = f"Loaded {len(translations)} translations"
+            if hasattr(self.db_editor_screen.ids, 'status_label'):
+                self.db_editor_screen.ids.status_label.text = f"Loaded {len(translations)} translations"
             
         except Exception as e:
             logger.error(f"Error loading translations: {e}")
-            self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+            if hasattr(self.db_editor_screen.ids, 'status_label'):
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
     
     def search_translations(self, search_term):
         """Search for translations in the database"""
