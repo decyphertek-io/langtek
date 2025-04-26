@@ -33,11 +33,8 @@ from kivy.clock import Clock
 from kivy.utils import platform
 from functools import partial
 from kivy.metrics import dp
-from pyglossary.glossary_v2 import Glossary
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
-from kivy.uix.listview import ListView
-from kivy.adapters.listadapter import ListAdapter
-from kivy.uix.listview import ListItemButton
+from pyglossary.glossary_v2 import Glossary
 
 # Setup logging to file
 logging.basicConfig(
@@ -962,167 +959,159 @@ KV = '''
                                 on_release: root.add_feed()
 
 <DatabaseEditorScreen>:
-    orientation: 'vertical'
-    canvas.before:
-        Color:
-            rgba: 0.95, 0.95, 0.95, 1
-        Rectangle:
-            pos: self.pos
-            size: self.size
-    BoxLayout:
-        id: editor_toolbar
-        orientation: 'horizontal'
-        size_hint_y: None
-        height: dp(56)
+        orientation: 'vertical'
         canvas.before:
-            Color:
-                rgba: 0.1, 0.1, 0.1, 1
-            Rectangle:
-                pos: self.pos
-                size: self.size
-        Button:
-            id: back_button
-            text: 'Back'
-            font_size: '16sp'
-            size_hint_x: None
-            width: dp(80)
-            background_color: 0.1, 0.1, 0.1, 1
-            background_normal: ''
-            on_release: app.close_db_editor()
-        Label:
-            text: 'Translation Database Editor'
-            font_size: '18sp'
-            bold: True
-            color: 0.9, 0.9, 0.9, 1
-    BoxLayout:
-        orientation: 'horizontal'
-        padding: dp(10)
-        spacing: dp(10)
-        BoxLayout:
-            orientation: 'vertical'
-            size_hint_x: 0.4
-            spacing: dp(10)
-            BoxLayout:
-                orientation: 'horizontal'
-                size_hint_y: None
-                height: dp(50)
-                TextInput:
-                    id: search_input
-                    hint_text: 'Search translations...'
-                    multiline: False
-                    size_hint_x: 0.7
-                Button:
-                    text: 'Search'
-                    size_hint_x: 0.3
-                    on_release: app.search_translations(search_input.text)
-            ScrollView:
-                do_scroll_x: False
-                GridLayout:
-                    id: translation_list
-                    cols: 1
-                    spacing: dp(2)
-                    size_hint_y: None
-                    height: self.minimum_height
-        BoxLayout:
-            orientation: 'vertical'
-            size_hint_x: 0.6
-            spacing: dp(10)
-            BoxLayout:
-                orientation: 'vertical'
-                size_hint_y: None
-                height: dp(120)
-                padding: dp(10)
-                canvas.before:
-                    Color:
-                        rgba: 0.9, 0.9, 0.9, 1
-                    RoundedRectangle:
+                Color:
+                        rgba: 0.95, 0.95, 0.95, 1
+                Rectangle:
                         pos: self.pos
                         size: self.size
-                        radius: [dp(5)]
-                Label:
-                    text: 'Word:'
-                    color: 0, 0, 0, 1
-                    size_hint_y: None
-                    height: dp(20)
-                    text_size: self.size
-                    halign: 'left'
-                TextInput:
-                    id: word_input
-                    hint_text: 'Spanish word'
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(40)
-                Label:
-                    text: 'Translation:'
-                    color: 0, 0, 0, 1
-                    size_hint_y: None
-                    height: dp(20)
-                    text_size: self.size
-                    halign: 'left'
-                TextInput:
-                    id: translation_input
-                    hint_text: 'English translation'
-                    multiline: False
-                    size_hint_y: None
-                    height: dp(40)
-            BoxLayout:
+        BoxLayout:
+                id: editor_toolbar
                 orientation: 'horizontal'
                 size_hint_y: None
-                height: dp(50)
+                height: dp(56)
+                canvas.before:
+                        Color:
+                                rgba: 0.1, 0.1, 0.1, 1
+                        Rectangle:
+                                pos: self.pos
+                                size: self.size
+                Button:
+                        id: back_button
+                        text: 'Back'
+                        font_size: '16sp'
+                        size_hint_x: None
+                        width: dp(80)
+                        background_color: 0.1, 0.1, 0.1, 1
+                        background_normal: ''
+                        on_release: app.close_db_editor()
+                Label:
+                        text: 'Translation Database Editor'
+                        font_size: '18sp'
+                        bold: True
+                        color: 0.9, 0.9, 0.9, 1
+        BoxLayout:
+                orientation: 'horizontal'
+                padding: dp(10)
                 spacing: dp(10)
-                Button:
-                    text: 'Add/Update'
-                    background_color: 0.2, 0.7, 0.3, 1
-                    on_release: app.add_update_translation(word_input.text, translation_input.text)
-                Button:
-                    text: 'Delete'
-                    background_color: 0.8, 0.2, 0.2, 1
-                    on_release: app.delete_translation(word_input.text)
-            Label:
-                id: status_label
-                text: ''
-                color: 0.2, 0.6, 0.2, 1
-                size_hint_y: None
-                height: dp(30)
-            GridLayout:
-                cols: 3
-                size_hint_y: None
-                height: dp(40)
-                Label:
-                    text: 'Word'
-                    bold: True
-                Label:
-                    text: 'Translation'
-                    bold: True
-                Label:
-                    text: 'Source'
-                    bold: True
-            ScrollView:
-                do_scroll_x: False
-                GridLayout:
-                    id: translation_details
-                    cols: 3
-                    spacing: dp(2)
-                    size_hint_y: None
-                    height: self.minimum_height
+                BoxLayout:
+                        orientation: 'vertical'
+                        size_hint_x: 0.4
+                        spacing: dp(10)
+                        BoxLayout:
+                                orientation: 'horizontal'
+                                size_hint_y: None
+                                height: dp(50)
+                                TextInput:
+                                        id: search_input
+                                        hint_text: 'Search translations...'
+                                        multiline: False
+                                        size_hint_x: 0.7
+                                Button:
+                                        text: 'Search'
+                                        size_hint_x: 0.3
+                                        on_release: app.search_translations(search_input.text)
+                        ScrollView:
+                                do_scroll_x: False
+                                GridLayout:
+                                        id: translation_list
+                                        cols: 1
+                                        spacing: dp(2)
+                                        size_hint_y: None
+                                        height: self.minimum_height
+                BoxLayout:
+                        orientation: 'vertical'
+                        size_hint_x: 0.6
+                        spacing: dp(10)
+                        BoxLayout:
+                                orientation: 'vertical'
+                                size_hint_y: None
+                                height: dp(120)
+                                padding: dp(10)
+                                canvas.before:
+                                        Color:
+                                                rgba: 0.9, 0.9, 0.9, 1
+                                        RoundedRectangle:
+                                                pos: self.pos
+                                                size: self.size
+                                                radius: [dp(5)]
+                                Label:
+                                        text: 'Word:'
+                                        color: 0, 0, 0, 1
+                                        size_hint_y: None
+                                        height: dp(20)
+                                        text_size: self.size
+                                        halign: 'left'
+                                TextInput:
+                                        id: word_input
+                                        hint_text: 'Spanish word'
+                                        multiline: False
+                                        size_hint_y: None
+                                        height: dp(40)
+                                Label:
+                                        text: 'Translation:'
+                                        color: 0, 0, 0, 1
+                                        size_hint_y: None
+                                        height: dp(20)
+                                        text_size: self.size
+                                        halign: 'left'
+                                TextInput:
+                                        id: translation_input
+                                        hint_text: 'English translation'
+                                        multiline: False
+                                        size_hint_y: None
+                                        height: dp(40)
+                        BoxLayout:
+                                orientation: 'horizontal'
+                                size_hint_y: None
+                                height: dp(50)
+                                spacing: dp(10)
+                                Button:
+                                        text: 'Add/Update'
+                                        background_color: 0.2, 0.7, 0.3, 1
+                                        on_release: app.add_update_translation(word_input.text, translation_input.text)
+                                Button:
+                                        text: 'Delete'
+                                        background_color: 0.8, 0.2, 0.2, 1
+                                        on_release: app.delete_translation(word_input.text)
+                        Label:
+                                id: status_label
+                                text: ''
+                                color: 0.2, 0.6, 0.2, 1
+                                size_hint_y: None
+                                height: dp(30)
+                        GridLayout:
+                                cols: 3
+                                size_hint_y: None
+                                height: dp(40)
+                                Label:
+                                        text: 'Word'
+                                        bold: True
+                                Label:
+                                        text: 'Translation'
+                                        bold: True
+                                Label:
+                                        text: 'Source'
+                                        bold: True
+                        ScrollView:
+                                do_scroll_x: False
+                                GridLayout:
+                                        id: translation_details
+                                        cols: 3
+                                        spacing: dp(2)
+                                        size_hint_y: None
+                                        height: self.minimum_height
 
-<TranslationItem>:
-    size_hint_y: None
-    height: dp(40)
-    canvas.before:
-        Color:
-            rgba: 0.85, 0.85, 0.85, 1
-        RoundedRectangle:
-            pos: self.pos
-            size: self.size
-            radius: [dp(5)]
-    Label:
-        text: root.word
-        color: 0, 0, 0, 1
-        text_size: self.size
+<TranslationButton>:
+        size_hint_y: None
+        height: dp(40)
+        text_size: self.width, None
         halign: 'left'
         valign: 'middle'
-        padding_x: dp(10)
+        padding: dp(10), dp(5)
+        background_color: 0.85, 0.85, 0.85, 1
+        color: 0, 0, 0, 1
 '''
 
 class ArticleCard(BoxLayout):
@@ -1177,8 +1166,13 @@ class RSSLayout(BoxLayout):
 class DatabaseEditorScreen(BoxLayout):
     pass
 
-class TranslationItem(BoxLayout):
+class TranslationButton(Button):
     word = StringProperty('')
+    
+    def on_release(self):
+        app = App.get_running_app()
+        if hasattr(app, 'select_translation'):
+            app.select_translation(self.word)
 
 class RSSApp(App):
     def __init__(self, **kwargs):
@@ -1597,9 +1591,8 @@ class RSSApp(App):
             translations = cursor.fetchall()
             
             for word, translation, source in translations:
-                # Create an item for the list
-                item = TranslationItem(word=word)
-                item.bind(on_release=lambda x, w=word, t=translation, s=source: self.select_translation(w, t, s))
+                # Create a button for the list
+                item = TranslationButton(text=word, word=word)
                 self.db_editor_screen.ids.translation_list.add_widget(item)
                 
                 # Add to details grid
@@ -1645,20 +1638,36 @@ class RSSApp(App):
         """Search for translations in the database"""
         self.load_translations(search_term)
     
-    def select_translation(self, word, translation, source):
+    def select_translation(self, word):
         """Select a translation for editing"""
         if not self.db_editor_screen:
             return
             
-        # Update input fields
-        self.db_editor_screen.ids.word_input.text = word
-        self.db_editor_screen.ids.translation_input.text = translation
-        
-        # Store selection
-        self.selected_translation = (word, translation, source)
-        
-        # Update status
-        self.db_editor_screen.ids.status_label.text = f"Selected: {word}"
+        try:
+            # Get current translation data from DB
+            conn = self.translator._get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word.lower(),))
+            result = cursor.fetchone()
+            
+            if not result:
+                return
+                
+            translation, source = result
+            
+            # Update input fields
+            self.db_editor_screen.ids.word_input.text = word
+            self.db_editor_screen.ids.translation_input.text = translation
+            
+            # Store selection
+            self.selected_translation = (word, translation, source)
+            
+            # Update status
+            self.db_editor_screen.ids.status_label.text = f"Selected: {word}"
+        except Exception as e:
+            logger.error(f"Error selecting translation: {e}")
+            if hasattr(self.db_editor_screen.ids, 'status_label'):
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
     
     def add_update_translation(self, word, translation):
         """Add or update a translation in the database"""
