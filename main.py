@@ -65,6 +65,12 @@ class TranslationService:
         # Initialize SQLite database
         self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
         self.db_file = os.path.join(self.db_dir, 'translations.db')
+        
+        # Create thread-local storage for database connections
+        self.thread_local = threading.local()
+        
+        # Initialize database schema
+        self._get_db_connection()
         self.init_database()
         
         # Add some basic common words to avoid hitting Google Translate too much
@@ -76,18 +82,26 @@ class TranslationService:
         # Run a test with common Spanish words to verify everything is working
         self.test_dictionary()
         
+    def _get_db_connection(self):
+        """Get a thread-local database connection"""
+        if not hasattr(self.thread_local, 'db_conn'):
+            # Create a new connection for this thread
+            self.thread_local.db_conn = sqlite3.connect(self.db_file)
+            logger.debug(f"Created new SQLite connection for thread {threading.get_ident()}")
+        return self.thread_local.db_conn
+        
     def init_database(self):
         """Initialize the SQLite database for translations"""
         try:
             # Create directory if it doesn't exist
             os.makedirs(self.db_dir, exist_ok=True)
             
-            # Connect to the database
-            self.db_conn = sqlite3.connect(self.db_file)
-            self.db_cursor = self.db_conn.cursor()
+            # Connect to the database (using thread-local connection)
+            conn = self._get_db_connection()
+            cursor = conn.cursor()
             
             # Create table if it doesn't exist
-            self.db_cursor.execute('''
+            cursor.execute('''
             CREATE TABLE IF NOT EXISTS translations (
                 id INTEGER PRIMARY KEY,
                 word TEXT NOT NULL,
@@ -98,10 +112,10 @@ class TranslationService:
             ''')
             
             # Create index on word for faster lookups
-            self.db_cursor.execute('CREATE INDEX IF NOT EXISTS idx_word ON translations(word)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_word ON translations(word)')
             
             # Commit changes
-            self.db_conn.commit()
+            conn.commit()
             
             logger.info(f"Database initialized at {self.db_file}")
             print(f"Database initialized at {self.db_file}")
@@ -144,14 +158,20 @@ class TranslationService:
             "tu": "your",
             "líder": "leader",
             "papa": "potato",
+            "funeral": "funeral",
+            "puentes": "bridges",
+            "construir": "build",
             "Francia": "France",
             "Ucrania": "Ukraine"
         }
         
         count = 0
+        conn = self._get_db_connection()
+        cursor = conn.cursor()
+        
         for spanish, english in common_words.items():
             try:
-                self.db_cursor.execute(
+                cursor.execute(
                     'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
                     (spanish.lower(), english, 'common')
                 )
@@ -159,7 +179,7 @@ class TranslationService:
             except:
                 pass
         
-        self.db_conn.commit()
+        conn.commit()
         logger.info(f"Added {count} common words to database")
         print(f"Added {count} common words to database")
     
@@ -217,14 +237,14 @@ class TranslationService:
                 # Check database first
                 translation = None
                 try:
-                    db_conn = sqlite3.connect(self.db_file)
+                    # Get thread-local connection
+                    db_conn = self._get_db_connection()
                     db_cursor = db_conn.cursor()
                     db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word.lower(),))
                     result = db_cursor.fetchone()
                     if result:
                         translation = result[0]
                         logger.debug(f"Queue: Found '{word}' in database")
-                    db_conn.close()
                 except Exception as db_error:
                     logger.error(f"Queue: Database error: {db_error}")
                 
@@ -235,14 +255,14 @@ class TranslationService:
                         if translation:
                             # Save to database
                             try:
-                                db_conn = sqlite3.connect(self.db_file)
+                                # Get thread-local connection
+                                db_conn = self._get_db_connection()
                                 db_cursor = db_conn.cursor()
                                 db_cursor.execute(
-                                    'INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                                    'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
                                     (word.lower(), translation, 'google')
                                 )
                                 db_conn.commit()
-                                db_conn.close()
                                 logger.debug(f"Queue: Saved '{word}' to database")
                             except Exception as save_error:
                                 logger.error(f"Queue: Error saving to database: {save_error}")
@@ -336,9 +356,11 @@ class TranslationService:
                     print(f"DEBUG: Found '{word}' in memory cache")
                 return self.word_dict[word_lower]
             
-            # Next check in SQLite database
-            self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
-            result = self.db_cursor.fetchone()
+            # Next check in SQLite database using thread-local connection
+            conn = self._get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
+            result = cursor.fetchone()
             
             if result:
                 if self.debug_mode:
@@ -366,27 +388,29 @@ class TranslationService:
                         logger.debug(f"Updated cache with delayed translation for '{word}'")
                     
                     self.queue_translation(word, update_cache)
-                    return "[no translation found yet]"
+                    return "[translating...]"  # More informative message
             
             # We're under the rate limit, do direct online lookup
             if self.debug_mode:
                 logger.debug(f"Looking up '{word}' online")
                 print(f"DEBUG: Looking up '{word}' online")
                 
-            translation = self.google_translate(word_lower)
+            translation = self._perform_online_translation(word_lower)
             
             if translation:
                 if self.debug_mode:
                     logger.debug(f"Found '{word}' online: {translation}")
                     print(f"DEBUG: Found '{word}' online: {translation}")
                 
-                # Save to database
+                # Save to database using thread-local connection
                 try:
-                    self.db_cursor.execute(
-                        'INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                    conn = self._get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
                         (word_lower, translation, 'google')
                     )
-                    self.db_conn.commit()
+                    conn.commit()
                 except Exception as db_error:
                     logger.error(f"Error saving translation to database: {db_error}")
                 
@@ -407,7 +431,10 @@ class TranslationService:
             if self.debug_mode:
                 logger.error(f"Lookup error for '{word}': {e}")
                 print(f"DEBUG: Lookup error for '{word}': {e}")
-            return "[lookup error]"
+            
+            # On error, add to memory cache with an error message to prevent repeated lookups
+            self.word_dict[word_lower] = "[error]"
+            return "[error]"  # Shorter message that won't cause concatenation errors
     
     def google_translate(self, word, from_lang='es', to_lang='en'):
         """Look up a word using Google Translate API (or free alternative)"""
@@ -486,12 +513,6 @@ class TranslationService:
     
     def __del__(self):
         """Close database connection"""
-        try:
-            if hasattr(self, 'db_conn') and self.db_conn:
-                self.db_conn.close()
-        except:
-            pass
-        
         # Try to shut down the queue gracefully
         try:
             if hasattr(self, 'translation_queue'):
@@ -499,6 +520,8 @@ class TranslationService:
                 self.translation_queue.put(None)
         except:
             pass
+        
+        # No need to close connections - they're thread-local and will be cleaned up automatically
 
 # Core RSS functionality
 class RSSParser:
