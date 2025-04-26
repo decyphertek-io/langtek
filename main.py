@@ -7,6 +7,7 @@ import threading
 import time
 import urllib.request
 import subprocess
+import logging
 from io import BytesIO
 from PIL import Image as PILImage
 from kivy.app import App
@@ -27,7 +28,16 @@ from kivy.utils import platform
 from functools import partial
 from kivy.metrics import dp
 import html
-from pyglossary.glossary import Glossary
+from pyglossary.glossary_v2 import Glossary
+
+# Setup logging to file
+logging.basicConfig(
+    filename='rss.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filemode='w'  # Overwrite the log file each time
+)
+logger = logging.getLogger('LangTek')
 
 class TranslationService:
     def __init__(self):
@@ -38,30 +48,36 @@ class TranslationService:
         self.debug_mode = True  # Enable debugging
         self.used_dictionary = None  # Track which dictionary was loaded
         
+        logger.info("Initializing TranslationService")
+        
         # Initialize pyglossary
         Glossary.init()
         
+        # Create a basic manual dictionary of common Spanish words
+        self.create_manual_dictionary()
+        
         # Look for dictionary in various locations and formats
         dict_paths = [
-            # MOBI format
-            os.path.join(os.path.dirname(__file__), 'db', 'Spanish-English-Dictionary.mobi'),
-            '/home/adminotaur/Documents/git/langtek/db/Spanish-English-Dictionary.mobi',
-            
-            # SLOB format
-            os.path.join(os.path.dirname(__file__), 'db', 'freedict-spa-eng-0.3.1.slob'),
-            '/home/adminotaur/Documents/git/langtek/db/freedict-spa-eng-0.3.1.slob',
+            # Tab-separated data file format (preferred due to simplicity)
+            os.path.join(os.path.dirname(__file__), 'db', 'es-en.data'),
+            '/home/adminotaur/Documents/git/langtek/db/es-en.data',
             
             # StarDict format
             os.path.join(os.path.dirname(__file__), 'db', 'spa-eng', 'spa-eng.ifo'),
             '/home/adminotaur/Documents/git/langtek/db/spa-eng/spa-eng.ifo',
             
-            # Data file (tab-separated) format
-            os.path.join(os.path.dirname(__file__), 'db', 'es-en.data'),
-            '/home/adminotaur/Documents/git/langtek/db/es-en.data'
+            # SLOB format
+            os.path.join(os.path.dirname(__file__), 'db', 'freedict-spa-eng-0.3.1.slob'),
+            '/home/adminotaur/Documents/git/langtek/db/freedict-spa-eng-0.3.1.slob',
+            
+            # MOBI format
+            os.path.join(os.path.dirname(__file__), 'db', 'Spanish-English-Dictionary.mobi'),
+            '/home/adminotaur/Documents/git/langtek/db/Spanish-English-Dictionary.mobi'
         ]
         
         for dict_path in dict_paths:
             if os.path.exists(dict_path):
+                logger.info(f"Found dictionary at {dict_path}")
                 print(f"Found dictionary at {dict_path}")
                 try:
                     if dict_path.endswith('.data'):
@@ -69,48 +85,183 @@ class TranslationService:
                         self.load_data_dictionary(dict_path)
                         if self.translator_available:
                             self.used_dictionary = f".data file: {os.path.basename(dict_path)}"
+                            logger.info(f"Successfully loaded .data dictionary: {dict_path}")
                             print(f"Successfully loaded .data dictionary: {dict_path}")
                             break
                     else:
-                        # Handle other formats with PyGlossary (MOBI, SLOB, StarDict)
-                        self.glossary = Glossary()
-                        success = self.glossary.read(dict_path)
-                        if not success:
-                            print(f"Failed to read dictionary: {dict_path}")
+                        # Handle other formats with PyGlossary
+                        try:
+                            self.glossary = Glossary()
+                            # Use direct data access instead of entry objects
+                            success = self.glossary.read(dict_path)
+                            if not success:
+                                logger.warning(f"Failed to read dictionary: {dict_path}")
+                                print(f"Failed to read dictionary: {dict_path}")
+                                continue
+                            
+                            logger.info(f"Successfully loaded dictionary file: {dict_path}")
+                            print(f"Successfully loaded dictionary file: {dict_path}")
+                            self.translator_available = True
+                            format_name = os.path.splitext(dict_path)[1]
+                            self.used_dictionary = f"{format_name} file: {os.path.basename(dict_path)}"
+                            break
+                        except Exception as glossary_error:
+                            logger.error(f"Error with glossary for {dict_path}: {glossary_error}")
+                            print(f"Error with glossary for {dict_path}: {glossary_error}")
                             continue
-                        
-                        # Cache first 10000 common words for faster access
-                        count = 0
-                        for entry in self.glossary:
-                            word = entry[0]
-                            defi = entry[1]
-                            if word and defi:
-                                self.word_dict[word.lower()] = defi.split(',')[0] if ',' in defi else defi
-                                count += 1
-                                if count >= 10000:  # Limit number of cached entries
-                                    break
-                                    
-                        self.translator_available = True
-                        format_name = os.path.splitext(dict_path)[1]
-                        self.used_dictionary = f"{format_name} file: {os.path.basename(dict_path)}"
-                        print(f"Successfully loaded {format_name} dictionary: {dict_path}")
-                        break
                 except Exception as e:
+                    logger.error(f"Error loading dictionary {dict_path}: {e}")
                     print(f"Error loading dictionary {dict_path}: {e}")
-        
+                    
         if not self.translator_available:
-            print("No dictionary found or loaded. Translation will not be available.")
-        else:
-            # Run a test with common Spanish words to verify dictionary is working
-            self.test_dictionary()
+            logger.warning("No dictionary found or loaded. Using basic built-in dictionary.")
+            print("No dictionary found or loaded. Using basic built-in dictionary.")
+        
+        # Test dictionary even if we're just using the manual one
+        self.test_dictionary()
+            
+    def create_manual_dictionary(self):
+        """Create a basic manual dictionary of common Spanish words"""
+        logger.info("Creating basic Spanish-English dictionary")
+        print("Creating basic Spanish-English dictionary")
+        basic_dict = {
+            "hola": "hello",
+            "adios": "goodbye",
+            "gracias": "thank you",
+            "por favor": "please",
+            "si": "yes",
+            "no": "no",
+            "buenos días": "good morning",
+            "buenas tardes": "good afternoon",
+            "buenas noches": "good evening",
+            "como estás": "how are you",
+            "bien": "good",
+            "mal": "bad",
+            "casa": "house",
+            "perro": "dog",
+            "gato": "cat",
+            "hombre": "man",
+            "mujer": "woman",
+            "niño": "boy",
+            "niña": "girl",
+            "amigo": "friend",
+            "familia": "family",
+            "comida": "food",
+            "agua": "water",
+            "vino": "wine",
+            "cerveza": "beer",
+            "pan": "bread",
+            "carne": "meat",
+            "pescado": "fish",
+            "fruta": "fruit",
+            "verdura": "vegetable",
+            "leche": "milk",
+            "café": "coffee",
+            "té": "tea",
+            "azúcar": "sugar",
+            "sal": "salt",
+            "pimienta": "pepper",
+            "caliente": "hot",
+            "frío": "cold",
+            "grande": "big",
+            "pequeño": "small",
+            "bueno": "good",
+            "malo": "bad",
+            "feliz": "happy",
+            "triste": "sad",
+            "rápido": "fast",
+            "lento": "slow",
+            "nuevo": "new",
+            "viejo": "old",
+            "alto": "tall",
+            "bajo": "short",
+            "gordo": "fat",
+            "delgado": "thin",
+            "bonito": "pretty",
+            "feo": "ugly",
+            "día": "day",
+            "noche": "night",
+            "mañana": "morning",
+            "tarde": "afternoon",
+            "semana": "week",
+            "mes": "month",
+            "año": "year",
+            "hora": "hour",
+            "minuto": "minute",
+            "segundo": "second",
+            "hoy": "today",
+            "ayer": "yesterday",
+            "mañana": "tomorrow",
+            "tiempo": "time",
+            "padre": "father",
+            "madre": "mother",
+            "hermano": "brother",
+            "hermana": "sister",
+            "hijo": "son",
+            "hija": "daughter",
+            "abuelo": "grandfather",
+            "abuela": "grandmother",
+            "tío": "uncle",
+            "tía": "aunt",
+            "primo": "cousin",
+            "esposo": "husband",
+            "esposa": "wife",
+            "amor": "love",
+            "odio": "hate",
+            "vida": "life",
+            "muerte": "death",
+            "trabajo": "work",
+            "escuela": "school",
+            "universidad": "university",
+            "hospital": "hospital",
+            "tienda": "store",
+            "restaurante": "restaurant",
+            "banco": "bank",
+            "iglesia": "church",
+            "calle": "street",
+            "ciudad": "city",
+            "país": "country",
+            "mundo": "world",
+            "uno": "one",
+            "dos": "two",
+            "tres": "three",
+            "cuatro": "four",
+            "cinco": "five",
+            "papa": "potato",
+            "Francia": "France",
+            "Ucrania": "Ukraine",
+            "libro": "book",
+            "de": "of",
+            "la": "the",
+            "el": "the",
+            "y": "and",
+            "a": "to",
+            "en": "in",
+            "con": "with",
+            "por": "for",
+            "para": "for",
+            "su": "his/her",
+            "mi": "my",
+            "tu": "your",
+            "líder": "leader"
+        }
+        
+        # Add them to the dictionary
+        for spanish, english in basic_dict.items():
+            self.word_dict[spanish.lower()] = english
+        
+        self.translator_available = True
+        logger.info(f"Added {len(basic_dict)} words to manual dictionary")
             
     def test_dictionary(self):
         """Test the dictionary with some common Spanish words"""
+        logger.info("=== DICTIONARY TEST ===")
+        logger.info(f"Using dictionary: {self.used_dictionary}")
         print("\n=== DICTIONARY TEST ===")
         print(f"Using dictionary: {self.used_dictionary}")
         print("Testing translation of common Spanish words:")
         
-        test_words = ["hola", "casa", "perro", "gato", "libro", "amor", "vida", "bueno", "malo", "comida"]
+        test_words = ["hola", "casa", "perro", "gato", "libro", "amor", "vida", "bueno", "malo", "comida", "papa", "Francia", "Ucrania", "líder", "de", "la"]
         max_word_len = max(len(word) for word in test_words)
         
         for word in test_words:
@@ -118,13 +269,17 @@ class TranslationService:
             found = translation != "[no translation found]" and translation != "[lookup error]"
             status = "✓" if found else "✗"
             padding = " " * (max_word_len - len(word))
-            print(f"  {word}{padding} → {translation} {status}")
+            result = f"  {word}{padding} → {translation} {status}"
+            logger.info(result)
+            print(result)
             
+        logger.info("======================")
         print("======================\n")
             
     def load_data_dictionary(self, file_path):
         """Load a dictionary from a tab-separated .data file"""
         try:
+            logger.info(f"Loading tab-separated dictionary file: {file_path}")
             print(f"Loading tab-separated dictionary file: {file_path}")
             count = 0
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -142,19 +297,24 @@ class TranslationService:
                             if count >= 50000:  # Limit entries in memory
                                 break
             
-            self.translator_available = count > 0
+            if count > 0:
+                self.translator_available = True
+            logger.info(f"Loaded {count} words from {file_path}")
             print(f"Loaded {count} words from {file_path}")
         except Exception as e:
+            logger.error(f"Error loading .data dictionary {file_path}: {e}")
             print(f"Error loading .data dictionary {file_path}: {e}")
                 
     def lookup_word(self, word):
-        if not word or not self.translator_available:
+        if not word:
+            logger.debug(f"Empty word passed to lookup_word")
             return "[no translation found]"
         
         try:
             # First check in cache
             if word.lower() in self.word_dict:
                 if self.debug_mode:
+                    logger.debug(f"Found '{word}' in dictionary cache")
                     print(f"DEBUG: Found '{word}' in dictionary cache")
                 return self.word_dict[word.lower()]
             
@@ -162,28 +322,35 @@ class TranslationService:
             if hasattr(self, 'glossary'):
                 try:
                     if self.debug_mode:
+                        logger.debug(f"Looking up '{word}' in glossary")
                         print(f"DEBUG: Looking up '{word}' in glossary")
                     result = self.glossary.lookup(word)
                     if result:
                         definition = result
                         # Store in cache for future lookups
                         self.word_dict[word.lower()] = definition
+                        logger.debug(f"Found '{word}' in glossary: {definition}")
                         return definition
                 except Exception as lookup_error:
                     if self.debug_mode:
+                        logger.error(f"Error during glossary lookup for '{word}': {lookup_error}")
                         print(f"DEBUG: Error during glossary lookup for '{word}': {lookup_error}")
             
             if self.debug_mode:
+                logger.debug(f"No translation found for '{word}'")
                 print(f"DEBUG: No translation found for '{word}'")
             return "[no translation found]"
         except Exception as e:
             if self.debug_mode:
+                logger.error(f"Lookup error for '{word}': {e}")
                 print(f"DEBUG: Lookup error for '{word}': {e}")
             return "[lookup error]"
 
     def translate_text(self, text):
-        if not text or not self.translator_available:
+        if not text:
             return text
+            
+        logger.debug(f"Translating text: {text[:50]}{'...' if len(text) > 50 else ''}")
         lines = text.split('\n')
         translated_lines = []
         for line in lines:
@@ -195,17 +362,26 @@ class TranslationService:
             translated_lines.append(original_line)
             translated_lines.append(translated_line)
             translated_lines.append('')
-        return '\n'.join(translated_lines)
+        result = '\n'.join(translated_lines)
+        logger.debug(f"Translation result: {result[:100]}{'...' if len(result) > 100 else ''}")
+        return result
     
     def translate_title(self, title):
-        if not title or not self.translator_available:
+        if not title:
             return title
-        return self.word_for_word_line(title)
+        logger.debug(f"Translating title: {title}")
+        result = self.word_for_word_line(title)
+        logger.debug(f"Title translation result: {result}")
+        return result
 
     def word_for_word_line(self, line):
+        logger.debug(f"Word-for-word translating: {line}")
         words = line.split()
         translated_words = []
         for word in words:
+            # Log the word being processed
+            logger.debug(f"Processing word: '{word}'")
+            
             # Clean the word of punctuation
             clean_word = word.strip('.,!?:;()"\'')
             
@@ -213,22 +389,32 @@ class TranslationService:
             prefix = word[:len(word)-len(clean_word)] if len(clean_word) < len(word) else ''
             suffix = word[len(clean_word):] if len(clean_word) < len(word) else ''
             
+            logger.debug(f"Word: '{word}', Clean: '{clean_word}', Prefix: '{prefix}', Suffix: '{suffix}'")
+            
             if clean_word:
-                # Get translation (don't duplicate the word itself)
                 translation = self.lookup_word(clean_word.lower())
+                logger.debug(f"Translation for '{clean_word}': '{translation}'")
+                
                 if translation in ("[no translation found]", "[lookup error]"):
                     # If no translation, just use original word
                     translated_words.append(prefix + clean_word + suffix)
+                    logger.debug(f"Using original: '{prefix + clean_word + suffix}'")
                 else:
-                    # Don't use the prefix again with the translation
-                    translated_words.append(translation + suffix)
+                    # Only use the original punctuation from the word, not duplicated with translation
+                    translated_words.append(prefix + translation + suffix)
+                    logger.debug(f"Using translation: '{prefix + translation + suffix}'")
             else:
                 translated_words.append(word)
-        return ' '.join(translated_words)
+                logger.debug(f"Empty word, using as is: '{word}'")
+        
+        result = ' '.join(translated_words)
+        logger.debug(f"Translation complete: '{result}'")
+        return result
 
     def set_languages(self, from_lang, to_lang):
         self.from_lang = from_lang
         self.to_lang = to_lang
+        logger.info(f"Using {from_lang}-{to_lang} dictionary for translations")
         print(f"Using {from_lang}-{to_lang} dictionary for translations")
 
 # Core RSS functionality
