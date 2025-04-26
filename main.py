@@ -51,7 +51,7 @@ class TranslationService:
         self.word_dict = {}  # In-memory cache
         self.translator_available = True  # Always available with Google Translate
         self.debug_mode = True  # Enable debugging
-        self.used_dictionary = "Google Translate + SQLite"
+        self.used_dictionary = "Translation APIs + SQLite"
         
         # Translation request queue and thread
         self.translation_queue = queue.Queue()
@@ -60,7 +60,33 @@ class TranslationService:
         self.max_requests_per_minute = 10  # Adjust as needed to prevent API limits
         self.request_timestamps = []
         
-        logger.info("Initializing TranslationService with Google Translate")
+        # Translation APIs with rate limits
+        self.translation_apis = [
+            {
+                'name': 'MyMemory',
+                'max_per_minute': 10,
+                'timestamps': [],
+                'lock': threading.Lock()
+            },
+            {
+                'name': 'LibreTranslate',
+                'max_per_minute': 5,
+                'timestamps': [],
+                'lock': threading.Lock()
+            },
+            {
+                'name': 'Lingva',
+                'max_per_minute': 8,
+                'timestamps': [],
+                'lock': threading.Lock()
+            }
+        ]
+        
+        # For UI refreshing
+        self.pending_translations = {}
+        self.refresh_callback = None
+        
+        logger.info("Initializing TranslationService with multiple APIs")
         
         # Initialize SQLite database
         self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
@@ -73,7 +99,7 @@ class TranslationService:
         self._get_db_connection()
         self.init_database()
         
-        # Add some basic common words to avoid hitting Google Translate too much
+        # Add some basic common words to avoid hitting translation APIs too much
         self.add_common_words()
         
         # Start the translation queue processing thread
@@ -81,6 +107,10 @@ class TranslationService:
         
         # Run a test with common Spanish words to verify everything is working
         self.test_dictionary()
+    
+    def set_refresh_callback(self, callback):
+        """Set a function to call when pending translations are completed"""
+        self.refresh_callback = callback
         
     def _get_db_connection(self):
         """Get a thread-local database connection"""
@@ -126,7 +156,7 @@ class TranslationService:
             self.translator_available = False
     
     def add_common_words(self):
-        """Add common Spanish words to avoid hitting Google Translate too much"""
+        """Add common Spanish words to avoid hitting translation APIs too much"""
         common_words = {
             "hola": "hello",
             "adiós": "goodbye",
@@ -182,7 +212,7 @@ class TranslationService:
         conn.commit()
         logger.info(f"Added {count} common words to database")
         print(f"Added {count} common words to database")
-    
+            
     def test_dictionary(self):
         """Test the translation service with some common Spanish words"""
         print("\n=== TRANSLATION SERVICE TEST ===")
@@ -203,7 +233,7 @@ class TranslationService:
             
         logger.info("======================")
         print("======================\n")
-    
+            
     def _process_translation_queue(self):
         """Background thread that processes translation requests in the queue"""
         logger.info("Translation queue processor thread started")
@@ -222,7 +252,8 @@ class TranslationService:
                 with self.queue_lock:
                     current_time = time.time()
                     # Remove timestamps older than 1 minute
-                    self.request_timestamps = [ts for ts in self.request_timestamps if current_time - ts < 60]
+                    self.request_timestamps = [ts for ts in self.request_timestamps 
+                                              if current_time - ts < 60]
                     
                     if len(self.request_timestamps) >= self.max_requests_per_minute:
                         # We've hit our rate limit, wait until we can make another request
@@ -260,7 +291,7 @@ class TranslationService:
                                 db_cursor = db_conn.cursor()
                                 db_cursor.execute(
                                     'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                                    (word.lower(), translation, 'google')
+                                    (word.lower(), translation, 'api')
                                 )
                                 db_conn.commit()
                                 logger.debug(f"Queue: Saved '{word}' to database")
@@ -288,45 +319,122 @@ class TranslationService:
                 time.sleep(0.5)
     
     def _perform_online_translation(self, word, from_lang='es', to_lang='en'):
-        """Perform actual online translation (for queue processor)"""
-        try:
-            # Using MyMemory API (free, no authentication required)
-            url = f"https://api.mymemory.translated.net/get?q={word}&langpair={from_lang}|{to_lang}"
+        """Perform actual online translation using multiple APIs with fallback"""
+        
+        # Try each API until one succeeds
+        for api_config in self.translation_apis:
+            api_name = api_config['name']
+            try:
+                # Check rate limits for this specific API
+                with api_config['lock']:
+                    current_time = time.time()
+                    # Remove timestamps older than 1 minute
+                    api_config['timestamps'] = [ts for ts in api_config['timestamps'] 
+                                               if current_time - ts < 60]
+                    
+                    if len(api_config['timestamps']) >= api_config['max_per_minute']:
+                        # Skip this API, it's at rate limit
+                        logger.debug(f"API {api_name} rate limited, trying next")
+                        continue
+                    
+                    # If we get here, we're under the rate limit for this API
+                    api_config['timestamps'].append(current_time)
+                
+                # Translate using the appropriate API
+                if api_name == 'MyMemory':
+                    translation = self._translate_mymemory(word, from_lang, to_lang)
+                elif api_name == 'LibreTranslate':
+                    translation = self._translate_libretranslate(word, from_lang, to_lang)
+                elif api_name == 'Lingva':
+                    translation = self._translate_lingva(word, from_lang, to_lang)
+                
+                if translation:
+                    logger.debug(f"Successfully translated '{word}' using {api_name}")
+                    return translation
+                    
+            except Exception as e:
+                logger.error(f"Error with {api_name} API: {e}")
+        
+        # If all APIs fail, return None
+        logger.error(f"All translation APIs failed for '{word}'")
+        return None
+    
+    def _translate_mymemory(self, word, from_lang='es', to_lang='en'):
+        """Translate using MyMemory API"""
+        url = f"https://api.mymemory.translated.net/get?q={word}&langpair={from_lang}|{to_lang}"
+        
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        
+        if 'responseData' in data and 'translatedText' in data['responseData']:
+            translation = data['responseData']['translatedText']
+            # Unescape HTML entities and clean up the translation
+            translation = html.unescape(translation).strip()
             
-            response = requests.get(url, timeout=5)
-            data = response.json()
+            # Check if matches original word
+            if translation.lower() == word.lower():
+                # Try an alternative translation if available
+                if 'matches' in data and len(data['matches']) > 0:
+                    for match in data['matches']:
+                        if 'translation' in match and match['translation'].lower() != word.lower():
+                            translation = match['translation']
+                            break
             
-            if 'responseData' in data and 'translatedText' in data['responseData']:
-                translation = data['responseData']['translatedText']
-                # Unescape HTML entities and clean up the translation
-                translation = html.unescape(translation).strip()
-                
-                # Check if matches original word
-                if translation.lower() == word.lower():
-                    # Try an alternative translation if available
-                    if 'matches' in data and len(data['matches']) > 0:
-                        for match in data['matches']:
-                            if 'translation' in match and match['translation'].lower() != word.lower():
-                                translation = match['translation']
-                                break
-                
-                return translation
-            else:
-                # Check if there is an error message
-                if 'responseStatus' in data and data['responseStatus'] != 200:
-                    logger.error(f"Translation API error: {data.get('responseDetails', 'Unknown error')}")
-                return None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error during translation: {e}")
-            return None
-        except ValueError as e:
-            logger.error(f"JSON parsing error during translation: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error during translation: {e}")
-            return None
-
+            return translation
+        return None
+    
+    def _translate_libretranslate(self, word, from_lang='es', to_lang='en'):
+        """Translate using LibreTranslate API"""
+        # Using public LibreTranslate instance - can be changed if needed
+        url = "https://libretranslate.org/translate"
+        
+        payload = {
+            "q": word,
+            "source": from_lang,
+            "target": to_lang,
+            "format": "text"
+        }
+        
+        headers = {"Content-Type": "application/json"}
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        data = response.json()
+        
+        if 'translatedText' in data:
+            return data['translatedText'].strip()
+        return None
+    
+    def _translate_lingva(self, word, from_lang='es', to_lang='en'):
+        """Translate using Lingva Translate API (unofficial Google Translate API)"""
+        url = f"https://lingva.ml/api/v1/{from_lang}/{to_lang}/{word}"
+        
+        response = requests.get(url, timeout=5)
+        data = response.json()
+        
+        if 'translation' in data:
+            return data['translation'].strip()
+        return None
+    
+    def _check_pending_translations(self):
+        """Check if there are pending translations that have completed and trigger UI refresh"""
+        has_updates = False
+        completed_words = []
+        
+        # Check if any pending translations are now in the cache
+        for word in self.pending_translations:
+            if word.lower() in self.word_dict:
+                has_updates = True
+                completed_words.append(word)
+        
+        # Remove completed translations from pending list
+        for word in completed_words:
+            del self.pending_translations[word]
+        
+        # If something was updated and we have a callback, trigger it
+        if has_updates and self.refresh_callback:
+            logger.debug("Triggering UI refresh because translations completed")
+            self.refresh_callback()
+    
     def queue_translation(self, word, callback=None, from_lang=None, to_lang=None):
         """Add a word to the translation queue"""
         if not word:
@@ -339,11 +447,11 @@ class TranslationService:
         # Add request to queue
         self.translation_queue.put((word, from_lang, to_lang, callback))
         logger.debug(f"Added '{word}' to translation queue")
-        
+                
     def lookup_word(self, word):
         """Look up a word in the database or online if not found"""
         if not word:
-            logger.debug(f"Empty word passed to lookup_word")
+            logger.debug("Empty word passed to lookup_word")
             return "[no translation found]"
         
         try:
@@ -371,26 +479,41 @@ class TranslationService:
                 self.word_dict[word_lower] = result[0]
                 return result[0]
             
-            # If not found locally, first check if we're under the rate limit
+            # If not found locally, first check if we're under any API rate limit
             current_time = time.time()
-            with self.queue_lock:
-                # Remove timestamps older than 1 minute
-                self.request_timestamps = [ts for ts in self.request_timestamps if current_time - ts < 60]
-                if len(self.request_timestamps) >= self.max_requests_per_minute:
-                    # We're at the rate limit, return not found and queue for later update
-                    if self.debug_mode:
-                        logger.debug(f"Rate limit hit, queueing '{word}' for later translation")
-                        print(f"DEBUG: Rate limit hit, queueing '{word}' for later translation")
-                    
-                    # Queue it for later update with a callback that adds to memory cache
-                    def update_cache(word, translation):
-                        self.word_dict[word.lower()] = translation
-                        logger.debug(f"Updated cache with delayed translation for '{word}'")
-                    
-                    self.queue_translation(word, update_cache)
-                    return "[translating...]"  # More informative message
+            can_translate_now = False
             
-            # We're under the rate limit, do direct online lookup
+            # Check if any API is available
+            for api_config in self.translation_apis:
+                with api_config['lock']:
+                    # Remove timestamps older than 1 minute
+                    api_config['timestamps'] = [ts for ts in api_config['timestamps'] 
+                                              if current_time - ts < 60]
+                    if len(api_config['timestamps']) < api_config['max_per_minute']:
+                        can_translate_now = True
+                        break
+            
+            if not can_translate_now:
+                # We're at the rate limit for all APIs, return placeholder and queue for later
+                if self.debug_mode:
+                    logger.debug(f"All APIs rate limited, queueing '{word}' for later translation")
+                    print(f"DEBUG: All APIs rate limited, queueing '{word}' for later translation")
+                
+                # Queue it for later update with a callback that adds to memory cache
+                def update_cache(word_to_update, translation):
+                    self.word_dict[word_to_update.lower()] = translation
+                    logger.debug(f"Updated cache with delayed translation for '{word_to_update}'")
+                    # Check if pending translations need UI refresh
+                    self._check_pending_translations()
+                
+                self.queue_translation(word, update_cache)
+                
+                # Add to pending translations
+                self.pending_translations[word] = True
+                
+                return "[translating...]"
+            
+            # We have at least one API under rate limit, do direct online lookup
             if self.debug_mode:
                 logger.debug(f"Looking up '{word}' online")
                 print(f"DEBUG: Looking up '{word}' online")
@@ -408,7 +531,7 @@ class TranslationService:
                     cursor = conn.cursor()
                     cursor.execute(
                         'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                        (word_lower, translation, 'google')
+                        (word_lower, translation, 'api')
                     )
                     conn.commit()
                 except Exception as db_error:
@@ -416,10 +539,6 @@ class TranslationService:
                 
                 # Add to memory cache
                 self.word_dict[word_lower] = translation
-                
-                # Add timestamp for rate limiting
-                with self.queue_lock:
-                    self.request_timestamps.append(time.time())
                 
                 return translation
             
@@ -439,7 +558,7 @@ class TranslationService:
     def google_translate(self, word, from_lang='es', to_lang='en'):
         """Look up a word using Google Translate API (or free alternative)"""
         return self._perform_online_translation(word, from_lang, to_lang)
-    
+
     def translate_text(self, text):
         if not text:
             return text
@@ -895,6 +1014,9 @@ class RSSApp(App):
         self.translator = TranslationService()
         self.article_translation_enabled = False
         self.current_article = None
+        
+        # Set up translation update callback
+        self.translator.set_refresh_callback(self.refresh_translations)
 
     def build(self):
         Builder.load_string(KV)
@@ -993,9 +1115,17 @@ class RSSApp(App):
         published = article.get('published', '')
         clean_title = RSSParser.clean_html(title)
         clean_content = RSSParser.clean_html(content)
+        
+        # Store the original content for reference
+        self.current_article = {
+            'title': clean_title,
+            'content': clean_content
+        }
+        
         # Stack Spanish and English translation in the title label, English in gray italics
         english_title = self.translator.word_for_word_line(clean_title)
         stacked_title = f"{clean_title}\n[i][color=#777777]{english_title}[/color][/i]"
+        
         # For content, interleave Spanish and English lines, English in gray italics
         lines = clean_content.split('\n')
         translated_lines = []
@@ -1006,28 +1136,37 @@ class RSSApp(App):
             translated_lines.append(line)
             translated_lines.append(f"[i][color=#777777]{self.translator.word_for_word_line(line)}[/color][/i]")
         stacked_content = '\n'.join(translated_lines)
+        
         image_url = RSSParser.get_image_url(article)
+        
         if not self.article_screen:
             self.article_screen = ArticleScreen()
             self.root.add_widget(self.article_screen)
+            
         self.article_screen.article_title = stacked_title
         self.article_screen.article_content = stacked_content
         self.article_screen.article_link = link
         self.article_screen.image_url = image_url
         self.article_screen.article_date = published
         self.article_screen.original_content = clean_content
-        self.current_article = {
-            'title': clean_title,
-            'content': clean_content,
-            'translated_title': stacked_title,
-            'translated_content': stacked_content
-        }
+        
         self.article_translation_enabled = True
         if hasattr(self.article_screen.ids, 'article_translate_btn'):
             self.article_screen.ids.article_translate_btn.text = 'O'  # 'O' for Original
+            
+        # Schedule periodic checks for translation updates (every 2 seconds)
+        Clock.schedule_interval(self._check_translations_update, 2)
+    
+    def _check_translations_update(self, dt):
+        """Check if there are any completed translations that should update the UI"""
+        if hasattr(self.translator, '_check_pending_translations'):
+            self.translator._check_pending_translations()
     
     def close_article(self):
         if self.article_screen:
+            # Stop the translation update checker
+            Clock.unschedule(self._check_translations_update)
+            
             self.root.remove_widget(self.article_screen)
             self.article_screen = None
             self.current_article = None
@@ -1159,6 +1298,39 @@ class RSSApp(App):
         else:
             import webbrowser
             webbrowser.open(link)
+
+    def refresh_translations(self):
+        """Refresh UI when pending translations complete"""
+        if not self.article_screen:
+            return
+            
+        # If we're in an article view, refresh the article content
+        if self.current_article:
+            title = self.current_article.get('title', '')
+            content = self.current_article.get('content', '')
+            
+            # Regenerate the translations
+            if title:
+                english_title = self.translator.word_for_word_line(title)
+                stacked_title = f"{title}\n[i][color=#777777]{english_title}[/color][/i]"
+                self.article_screen.article_title = stacked_title
+            
+            if content:
+                # For content, interleave Spanish and English lines
+                lines = content.split('\n')
+                translated_lines = []
+                for line in lines:
+                    if not line.strip():
+                        translated_lines.append('')
+                        continue
+                    translated_lines.append(line)
+                    translated_lines.append(f"[i][color=#777777]{self.translator.word_for_word_line(line)}[/color][/i]")
+                stacked_content = '\n'.join(translated_lines)
+                self.article_screen.article_content = stacked_content
+        
+        # Also refresh the main feed display
+        self.root.ids.feed_grid.clear_widgets()
+        self.load_all_feeds(0)
 
 if __name__ == '__main__':
     RSSApp().run()
