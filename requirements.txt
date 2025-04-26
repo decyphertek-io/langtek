@@ -1,12 +1,9 @@
 # language/langtek/requirements.txt
 kivy
-feedparser
 pillow
+feedparser
+pyglossary
+PyICU
 requests
 beautifulsoup4
-html5lib
-pyglossary
-lxml
-PyICU
-marisa-trie
-python-lzo
+

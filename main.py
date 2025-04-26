@@ -56,6 +56,18 @@ class TranslationService:
         # Create a basic manual dictionary of common Spanish words
         self.create_manual_dictionary()
         
+        # First try to load the master dictionary if it exists
+        master_dict = os.path.join(os.path.dirname(__file__), 'db', 'master-es-en.data')
+        if os.path.exists(master_dict):
+            logger.info(f"Found master dictionary at {master_dict}")
+            print(f"Found master dictionary at {master_dict}")
+            self.load_data_dictionary(master_dict)
+            if self.translator_available:
+                self.used_dictionary = f"Master dictionary: {os.path.basename(master_dict)}"
+                logger.info(f"Successfully loaded master dictionary: {master_dict}")
+                print(f"Successfully loaded master dictionary: {master_dict}")
+                return  # No need to load other dictionaries
+        
         # Look for dictionary in various locations and formats
         dict_paths = [
             # Tab-separated data file format (preferred due to simplicity)
@@ -335,6 +347,33 @@ class TranslationService:
                     if self.debug_mode:
                         logger.error(f"Error during glossary lookup for '{word}': {lookup_error}")
                         print(f"DEBUG: Error during glossary lookup for '{word}': {lookup_error}")
+            
+            # If not found and we have a master dictionary, try to look it up online and add it
+            if os.path.exists(os.path.join(os.path.dirname(__file__), 'db', 'master-es-en.data')):
+                try:
+                    # Only look up online if we have db.py available
+                    if os.path.exists(os.path.join(os.path.dirname(__file__), 'db.py')):
+                        logger.debug(f"Attempting online lookup for '{word}'")
+                        print(f"DEBUG: Attempting online lookup for '{word}'")
+                        import subprocess
+                        result = subprocess.run(
+                            ['python', os.path.join(os.path.dirname(__file__), 'db.py'), '--online', word],
+                            capture_output=True, text=True
+                        )
+                        if result.returncode == 0 and 'Found online:' in result.stdout:
+                            # Extract the translation
+                            lines = result.stdout.splitlines()
+                            for line in lines:
+                                if 'Found online:' in line:
+                                    parts = line.split("'")
+                                    if len(parts) >= 4:
+                                        translation = parts[3]
+                                        self.word_dict[word.lower()] = translation
+                                        logger.debug(f"Found '{word}' online: {translation}")
+                                        print(f"DEBUG: Found '{word}' online: {translation}")
+                                        return translation
+                except Exception as online_error:
+                    logger.error(f"Error during online lookup attempt for '{word}': {online_error}")
             
             if self.debug_mode:
                 logger.debug(f"No translation found for '{word}'")
