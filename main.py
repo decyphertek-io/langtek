@@ -39,42 +39,113 @@ class TranslationService:
         # Initialize pyglossary
         Glossary.init()
         
-        # Look for dictionary in various locations
+        # Look for dictionary in various locations and formats
         dict_paths = [
+            # MOBI format
             os.path.join(os.path.dirname(__file__), 'db', 'Spanish-English-Dictionary.mobi'),
-            # Try absolute path as fallback
             '/home/adminotaur/Documents/git/langtek/db/Spanish-English-Dictionary.mobi',
+            
+            # SLOB format
+            os.path.join(os.path.dirname(__file__), 'db', 'freedict-spa-eng-0.3.1.slob'),
+            '/home/adminotaur/Documents/git/langtek/db/freedict-spa-eng-0.3.1.slob',
+            
+            # StarDict format
+            os.path.join(os.path.dirname(__file__), 'db', 'spa-eng', 'spa-eng.ifo'),
+            '/home/adminotaur/Documents/git/langtek/db/spa-eng/spa-eng.ifo',
+            
+            # Data file (tab-separated) format
+            os.path.join(os.path.dirname(__file__), 'db', 'es-en.data'),
+            '/home/adminotaur/Documents/git/langtek/db/es-en.data'
         ]
         
         for dict_path in dict_paths:
             if os.path.exists(dict_path):
                 print(f"Found dictionary at {dict_path}")
                 try:
-                    self.glossary = Glossary()
-                    success = self.glossary.read(dict_path)
-                    if not success:
-                        print(f"Failed to read dictionary: {dict_path}")
-                        continue
-                    
-                    # Cache first 10000 common words for faster access
-                    count = 0
-                    for entry in self.glossary:
-                        word = entry[0]
-                        defi = entry[1]
-                        if word and defi:
-                            self.word_dict[word.lower()] = defi.split(',')[0] if ',' in defi else defi
-                            count += 1
-                            if count >= 10000:  # Limit number of cached entries
-                                break
-                                
-                    self.translator_available = True
-                    print(f"Loaded {count} words into translation cache")
-                    break
+                    if dict_path.endswith('.data'):
+                        # Handle .data format (tab-separated values)
+                        self.load_data_dictionary(dict_path)
+                        if self.translator_available:
+                            print(f"Successfully loaded .data dictionary: {dict_path}")
+                            break
+                    else:
+                        # Handle other formats with PyGlossary (MOBI, SLOB, StarDict)
+                        self.glossary = Glossary()
+                        success = self.glossary.read(dict_path)
+                        if not success:
+                            print(f"Failed to read dictionary: {dict_path}")
+                            continue
+                        
+                        # Cache first 10000 common words for faster access
+                        count = 0
+                        for entry in self.glossary:
+                            word = entry[0]
+                            defi = entry[1]
+                            if word and defi:
+                                self.word_dict[word.lower()] = defi.split(',')[0] if ',' in defi else defi
+                                count += 1
+                                if count >= 10000:  # Limit number of cached entries
+                                    break
+                                    
+                        self.translator_available = True
+                        print(f"Successfully loaded {os.path.splitext(dict_path)[1]} dictionary: {dict_path}")
+                        break
                 except Exception as e:
                     print(f"Error loading dictionary {dict_path}: {e}")
         
         if not self.translator_available:
             print("No dictionary found or loaded. Translation will not be available.")
+            
+    def load_data_dictionary(self, file_path):
+        """Load a dictionary from a tab-separated .data file"""
+        try:
+            print(f"Loading tab-separated dictionary file: {file_path}")
+            count = 0
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    parts = line.split('\t')
+                    if len(parts) >= 2:
+                        word = parts[0].strip()
+                        definition = parts[1].strip()
+                        if word and definition:
+                            self.word_dict[word.lower()] = definition
+                            count += 1
+                            if count >= 50000:  # Limit entries in memory
+                                break
+            
+            self.translator_available = count > 0
+            print(f"Loaded {count} words from {file_path}")
+        except Exception as e:
+            print(f"Error loading .data dictionary {file_path}: {e}")
+                
+    def lookup_word(self, word):
+        if not word or not self.translator_available:
+            return "[no translation found]"
+        
+        try:
+            # First check in cache
+            if word.lower() in self.word_dict:
+                return self.word_dict[word.lower()]
+            
+            # If not in cache and glossary is available, try lookup in glossary
+            if hasattr(self, 'glossary'):
+                try:
+                    result = self.glossary.lookup(word)
+                    if result:
+                        definition = result
+                        # Store in cache for future lookups
+                        self.word_dict[word.lower()] = definition
+                        return definition
+                except Exception as lookup_error:
+                    print(f"Error during glossary lookup for '{word}': {lookup_error}")
+            
+            return "[no translation found]"
+        except Exception as e:
+            print(f"Lookup error: {e}")
+            return "[lookup error]"
 
     def translate_text(self, text):
         if not text or not self.translator_available:
@@ -113,31 +184,6 @@ class TranslationService:
             else:
                 translated_words.append(word)
         return ' '.join(translated_words)
-
-    def lookup_word(self, word):
-        if not word or not self.translator_available:
-            return "[no translation found]"
-        
-        try:
-            # First check in cache
-            if word.lower() in self.word_dict:
-                return self.word_dict[word.lower()]
-            
-            # Try lookup in glossary
-            try:
-                result = self.glossary.lookup(word)
-                if result:
-                    definition = result
-                    # Store in cache for future lookups
-                    self.word_dict[word.lower()] = definition
-                    return definition
-            except Exception as lookup_error:
-                print(f"Error during glossary lookup for '{word}': {lookup_error}")
-                
-            return "[no translation found]"
-        except Exception as e:
-            print(f"Lookup error: {e}")
-            return "[lookup error]"
 
     def set_languages(self, from_lang, to_lang):
         self.from_lang = from_lang
