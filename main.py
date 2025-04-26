@@ -34,6 +34,10 @@ from kivy.utils import platform
 from functools import partial
 from kivy.metrics import dp
 from pyglossary.glossary_v2 import Glossary
+from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
+from kivy.uix.listview import ListView
+from kivy.adapters.listadapter import ListAdapter
+from kivy.uix.listview import ListItemButton
 
 # Setup logging to file
 logging.basicConfig(
@@ -956,6 +960,169 @@ KV = '''
                                 text: 'Add'
                                 background_color: 0.2, 0.5, 0.8, 1
                                 on_release: root.add_feed()
+
+<DatabaseEditorScreen>:
+    orientation: 'vertical'
+    canvas.before:
+        Color:
+            rgba: 0.95, 0.95, 0.95, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    BoxLayout:
+        id: editor_toolbar
+        orientation: 'horizontal'
+        size_hint_y: None
+        height: dp(56)
+        canvas.before:
+            Color:
+                rgba: 0.1, 0.1, 0.1, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+        Button:
+            id: back_button
+            text: 'Back'
+            font_size: '16sp'
+            size_hint_x: None
+            width: dp(80)
+            background_color: 0.1, 0.1, 0.1, 1
+            background_normal: ''
+            on_release: app.close_db_editor()
+        Label:
+            text: 'Translation Database Editor'
+            font_size: '18sp'
+            bold: True
+            color: 0.9, 0.9, 0.9, 1
+    BoxLayout:
+        orientation: 'horizontal'
+        padding: dp(10)
+        spacing: dp(10)
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.4
+            spacing: dp(10)
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(50)
+                TextInput:
+                    id: search_input
+                    hint_text: 'Search translations...'
+                    multiline: False
+                    size_hint_x: 0.7
+                Button:
+                    text: 'Search'
+                    size_hint_x: 0.3
+                    on_release: app.search_translations(search_input.text)
+            ScrollView:
+                do_scroll_x: False
+                GridLayout:
+                    id: translation_list
+                    cols: 1
+                    spacing: dp(2)
+                    size_hint_y: None
+                    height: self.minimum_height
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: 0.6
+            spacing: dp(10)
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: None
+                height: dp(120)
+                padding: dp(10)
+                canvas.before:
+                    Color:
+                        rgba: 0.9, 0.9, 0.9, 1
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [dp(5)]
+                Label:
+                    text: 'Word:'
+                    color: 0, 0, 0, 1
+                    size_hint_y: None
+                    height: dp(20)
+                    text_size: self.size
+                    halign: 'left'
+                TextInput:
+                    id: word_input
+                    hint_text: 'Spanish word'
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(40)
+                Label:
+                    text: 'Translation:'
+                    color: 0, 0, 0, 1
+                    size_hint_y: None
+                    height: dp(20)
+                    text_size: self.size
+                    halign: 'left'
+                TextInput:
+                    id: translation_input
+                    hint_text: 'English translation'
+                    multiline: False
+                    size_hint_y: None
+                    height: dp(40)
+            BoxLayout:
+                orientation: 'horizontal'
+                size_hint_y: None
+                height: dp(50)
+                spacing: dp(10)
+                Button:
+                    text: 'Add/Update'
+                    background_color: 0.2, 0.7, 0.3, 1
+                    on_release: app.add_update_translation(word_input.text, translation_input.text)
+                Button:
+                    text: 'Delete'
+                    background_color: 0.8, 0.2, 0.2, 1
+                    on_release: app.delete_translation(word_input.text)
+            Label:
+                id: status_label
+                text: ''
+                color: 0.2, 0.6, 0.2, 1
+                size_hint_y: None
+                height: dp(30)
+            GridLayout:
+                cols: 3
+                size_hint_y: None
+                height: dp(40)
+                Label:
+                    text: 'Word'
+                    bold: True
+                Label:
+                    text: 'Translation'
+                    bold: True
+                Label:
+                    text: 'Source'
+                    bold: True
+            ScrollView:
+                do_scroll_x: False
+                GridLayout:
+                    id: translation_details
+                    cols: 3
+                    spacing: dp(2)
+                    size_hint_y: None
+                    height: self.minimum_height
+
+<TranslationItem>:
+    size_hint_y: None
+    height: dp(40)
+    canvas.before:
+        Color:
+            rgba: 0.85, 0.85, 0.85, 1
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [dp(5)]
+    Label:
+        text: root.word
+        color: 0, 0, 0, 1
+        text_size: self.size
+        halign: 'left'
+        valign: 'middle'
+        padding_x: dp(10)
 '''
 
 class ArticleCard(BoxLayout):
@@ -1007,13 +1174,21 @@ class AddFeedDialog(Popup):
 class RSSLayout(BoxLayout):
     pass
 
+class DatabaseEditorScreen(BoxLayout):
+    pass
+
+class TranslationItem(BoxLayout):
+    word = StringProperty('')
+
 class RSSApp(App):
     def __init__(self, **kwargs):
         super(RSSApp, self).__init__(**kwargs)
         self.article_screen = None
+        self.db_editor_screen = None
         self.translator = TranslationService()
         self.article_translation_enabled = False
         self.current_article = None
+        self.selected_translation = None
         
         # Set up translation update callback
         self.translator.set_refresh_callback(self.refresh_translations)
@@ -1213,6 +1388,17 @@ class RSSApp(App):
         refresh_btn.bind(on_release=lambda x: self.refresh_feeds(menu))
         content.add_widget(refresh_btn)
         
+        # Translation DB editor button
+        db_editor_btn = Button(
+            text='Edit Translations',
+            size_hint_y=None,
+            height=dp(60),
+            background_color=(0.8, 0.4, 0.2, 1),
+            font_size='16sp'
+        )
+        db_editor_btn.bind(on_release=lambda x: self.show_db_editor(menu))
+        content.add_widget(db_editor_btn)
+        
         # Show feeds if any
         if self.feeds:
             feeds_label = Label(
@@ -1331,6 +1517,193 @@ class RSSApp(App):
         # Also refresh the main feed display
         self.root.ids.feed_grid.clear_widgets()
         self.load_all_feeds(0)
+
+    def show_db_editor(self, menu=None):
+        """Show the database editor screen"""
+        if menu:
+            menu.dismiss()
+            
+        if not self.db_editor_screen:
+            self.db_editor_screen = DatabaseEditorScreen()
+            
+        # Add to root
+        self.root.add_widget(self.db_editor_screen)
+        
+        # Load translations
+        self.load_translations()
+    
+    def close_db_editor(self):
+        """Close the database editor screen"""
+        if self.db_editor_screen:
+            self.root.remove_widget(self.db_editor_screen)
+    
+    def load_translations(self, search_term=None):
+        """Load translations from the database into the editor"""
+        if not self.db_editor_screen:
+            return
+            
+        # Clear existing items
+        self.db_editor_screen.ids.translation_list.clear_widgets()
+        self.db_editor_screen.ids.translation_details.clear_widgets()
+        
+        try:
+            # Get all translations
+            conn = self.translator._get_db_connection()
+            cursor = conn.cursor()
+            
+            if search_term:
+                # Search for specific terms
+                cursor.execute(
+                    "SELECT word, translation, source FROM translations WHERE word LIKE ? OR translation LIKE ? ORDER BY word LIMIT 200",
+                    (f"%{search_term}%", f"%{search_term}%")
+                )
+            else:
+                # Get recent translations
+                cursor.execute(
+                    "SELECT word, translation, source FROM translations ORDER BY date_added DESC LIMIT 100"
+                )
+                
+            translations = cursor.fetchall()
+            
+            for word, translation, source in translations:
+                # Create an item for the list
+                item = TranslationItem(word=word)
+                item.bind(on_release=lambda x, w=word, t=translation, s=source: self.select_translation(w, t, s))
+                self.db_editor_screen.ids.translation_list.add_widget(item)
+                
+                # Add to details grid
+                word_label = Label(
+                    text=word, 
+                    color=(0, 0, 0, 1),
+                    size_hint_y=None,
+                    height=dp(30),
+                    text_size=(None, None),
+                    halign='left'
+                )
+                translation_label = Label(
+                    text=translation, 
+                    color=(0, 0, 0, 1),
+                    size_hint_y=None,
+                    height=dp(30),
+                    text_size=(None, None),
+                    halign='left'
+                )
+                source_label = Label(
+                    text=source, 
+                    color=(0, 0, 0, 1),
+                    size_hint_y=None,
+                    height=dp(30),
+                    text_size=(None, None),
+                    halign='left'
+                )
+                
+                self.db_editor_screen.ids.translation_details.add_widget(word_label)
+                self.db_editor_screen.ids.translation_details.add_widget(translation_label)
+                self.db_editor_screen.ids.translation_details.add_widget(source_label)
+                
+            # Update status
+            self.db_editor_screen.ids.status_label.text = f"Loaded {len(translations)} translations"
+            
+        except Exception as e:
+            logger.error(f"Error loading translations: {e}")
+            self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+    
+    def search_translations(self, search_term):
+        """Search for translations in the database"""
+        self.load_translations(search_term)
+    
+    def select_translation(self, word, translation, source):
+        """Select a translation for editing"""
+        if not self.db_editor_screen:
+            return
+            
+        # Update input fields
+        self.db_editor_screen.ids.word_input.text = word
+        self.db_editor_screen.ids.translation_input.text = translation
+        
+        # Store selection
+        self.selected_translation = (word, translation, source)
+        
+        # Update status
+        self.db_editor_screen.ids.status_label.text = f"Selected: {word}"
+    
+    def add_update_translation(self, word, translation):
+        """Add or update a translation in the database"""
+        if not word or not translation:
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = "Error: Word and translation required"
+            return
+            
+        try:
+            # Save to database
+            conn = self.translator._get_db_connection()
+            cursor = conn.cursor()
+            
+            # Check if word exists
+            cursor.execute("SELECT id FROM translations WHERE word = ?", (word.lower(),))
+            result = cursor.fetchone()
+            
+            if result:
+                # Update existing translation
+                cursor.execute(
+                    "UPDATE translations SET translation = ?, source = 'manual', date_added = CURRENT_TIMESTAMP WHERE word = ?",
+                    (translation, word.lower())
+                )
+                action = "Updated"
+            else:
+                # Add new translation
+                cursor.execute(
+                    "INSERT INTO translations (word, translation, source) VALUES (?, ?, 'manual')",
+                    (word.lower(), translation)
+                )
+                action = "Added"
+                
+            conn.commit()
+            
+            # Update memory cache
+            self.translator.word_dict[word.lower()] = translation
+            
+            # Update status
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"{action} translation for '{word}'"
+                
+            # Reload translations
+            self.load_translations()
+            
+        except Exception as e:
+            logger.error(f"Error adding/updating translation: {e}")
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+    
+    def delete_translation(self, word):
+        """Delete a translation from the database"""
+        if not word:
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = "Error: No word specified"
+            return
+            
+        try:
+            # Delete from database
+            conn = self.translator._get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM translations WHERE word = ?", (word.lower(),))
+            conn.commit()
+            
+            # Remove from memory cache
+            if word.lower() in self.translator.word_dict:
+                del self.translator.word_dict[word.lower()]
+            
+            # Update status
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"Deleted translation for '{word}'"
+                
+            # Reload translations
+            self.load_translations()
+            
+        except Exception as e:
+            logger.error(f"Error deleting translation: {e}")
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
 
 if __name__ == '__main__':
     RSSApp().run()
