@@ -35,6 +35,8 @@ class TranslationService:
         self.to_lang = 'en'
         self.word_dict = {}
         self.translator_available = False
+        self.debug_mode = True  # Enable debugging
+        self.used_dictionary = None  # Track which dictionary was loaded
         
         # Initialize pyglossary
         Glossary.init()
@@ -66,6 +68,7 @@ class TranslationService:
                         # Handle .data format (tab-separated values)
                         self.load_data_dictionary(dict_path)
                         if self.translator_available:
+                            self.used_dictionary = f".data file: {os.path.basename(dict_path)}"
                             print(f"Successfully loaded .data dictionary: {dict_path}")
                             break
                     else:
@@ -88,13 +91,36 @@ class TranslationService:
                                     break
                                     
                         self.translator_available = True
-                        print(f"Successfully loaded {os.path.splitext(dict_path)[1]} dictionary: {dict_path}")
+                        format_name = os.path.splitext(dict_path)[1]
+                        self.used_dictionary = f"{format_name} file: {os.path.basename(dict_path)}"
+                        print(f"Successfully loaded {format_name} dictionary: {dict_path}")
                         break
                 except Exception as e:
                     print(f"Error loading dictionary {dict_path}: {e}")
         
         if not self.translator_available:
             print("No dictionary found or loaded. Translation will not be available.")
+        else:
+            # Run a test with common Spanish words to verify dictionary is working
+            self.test_dictionary()
+            
+    def test_dictionary(self):
+        """Test the dictionary with some common Spanish words"""
+        print("\n=== DICTIONARY TEST ===")
+        print(f"Using dictionary: {self.used_dictionary}")
+        print("Testing translation of common Spanish words:")
+        
+        test_words = ["hola", "casa", "perro", "gato", "libro", "amor", "vida", "bueno", "malo", "comida"]
+        max_word_len = max(len(word) for word in test_words)
+        
+        for word in test_words:
+            translation = self.lookup_word(word)
+            found = translation != "[no translation found]" and translation != "[lookup error]"
+            status = "✓" if found else "✗"
+            padding = " " * (max_word_len - len(word))
+            print(f"  {word}{padding} → {translation} {status}")
+            
+        print("======================\n")
             
     def load_data_dictionary(self, file_path):
         """Load a dictionary from a tab-separated .data file"""
@@ -128,11 +154,15 @@ class TranslationService:
         try:
             # First check in cache
             if word.lower() in self.word_dict:
+                if self.debug_mode:
+                    print(f"DEBUG: Found '{word}' in dictionary cache")
                 return self.word_dict[word.lower()]
             
             # If not in cache and glossary is available, try lookup in glossary
             if hasattr(self, 'glossary'):
                 try:
+                    if self.debug_mode:
+                        print(f"DEBUG: Looking up '{word}' in glossary")
                     result = self.glossary.lookup(word)
                     if result:
                         definition = result
@@ -140,11 +170,15 @@ class TranslationService:
                         self.word_dict[word.lower()] = definition
                         return definition
                 except Exception as lookup_error:
-                    print(f"Error during glossary lookup for '{word}': {lookup_error}")
+                    if self.debug_mode:
+                        print(f"DEBUG: Error during glossary lookup for '{word}': {lookup_error}")
             
+            if self.debug_mode:
+                print(f"DEBUG: No translation found for '{word}'")
             return "[no translation found]"
         except Exception as e:
-            print(f"Lookup error: {e}")
+            if self.debug_mode:
+                print(f"DEBUG: Lookup error for '{word}': {e}")
             return "[lookup error]"
 
     def translate_text(self, text):
