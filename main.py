@@ -53,8 +53,34 @@ class TranslationService:
         # Initialize pyglossary
         Glossary.init()
         
+        # Check for SQLite database first (preferred method)
+        db_path = os.path.join(os.path.dirname(__file__), 'db', 'dictionary.db')
+        if os.path.exists(db_path):
+            try:
+                import sqlite3
+                self.db_conn = sqlite3.connect(db_path)
+                self.db_cursor = self.db_conn.cursor()
+                
+                # Test the database
+                self.db_cursor.execute("SELECT COUNT(*) FROM translations")
+                count = self.db_cursor.fetchone()[0]
+                
+                if count > 0:
+                    logger.info(f"Found SQLite dictionary with {count} translations")
+                    print(f"Found SQLite dictionary with {count} translations")
+                    self.translator_available = True
+                    self.used_dictionary = f"SQLite database: {os.path.basename(db_path)}"
+                    self.translation_method = "sqlite"
+                    # No need to load the basic dictionary or other dictionaries
+                    return
+            except Exception as e:
+                logger.error(f"Error connecting to SQLite database: {e}")
+                print(f"Error connecting to SQLite database: {e}")
+        
+        # If SQLite database not available, fall back to other methods
         # Create a basic manual dictionary of common Spanish words
         self.create_manual_dictionary()
+        self.translation_method = "dictionary"
         
         # First try to load the master dictionary if it exists
         master_dict = os.path.join(os.path.dirname(__file__), 'db', 'master-es-en.data')
@@ -323,6 +349,47 @@ class TranslationService:
             return "[no translation found]"
         
         try:
+            # If using SQLite database
+            if hasattr(self, 'translation_method') and self.translation_method == "sqlite":
+                word_lower = word.lower()
+                self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
+                result = self.db_cursor.fetchone()
+                
+                if result:
+                    if self.debug_mode:
+                        logger.debug(f"Found '{word}' in SQLite database")
+                        print(f"DEBUG: Found '{word}' in SQLite database")
+                    return result[0]
+                
+                # If not found in database and we have a db.py script, try online lookup
+                db_py_path = os.path.join(os.path.dirname(__file__), 'db', 'db.py')
+                if os.path.exists(db_py_path):
+                    logger.debug(f"Attempting online lookup for '{word}'")
+                    print(f"DEBUG: Attempting online lookup for '{word}'")
+                    try:
+                        import subprocess
+                        result = subprocess.run(
+                            ['python3', db_py_path, '--online', word_lower],
+                            capture_output=True, text=True
+                        )
+                        if result.returncode == 0 and 'Found online:' in result.stdout:
+                            # The database should now have the word, try to get it
+                            self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
+                            updated_result = self.db_cursor.fetchone()
+                            
+                            if updated_result:
+                                logger.debug(f"Added '{word}' to database from online lookup")
+                                print(f"DEBUG: Added '{word}' to database from online lookup")
+                                return updated_result[0]
+                    except Exception as online_error:
+                        logger.error(f"Error during online lookup: {online_error}")
+                
+                if self.debug_mode:
+                    logger.debug(f"No translation found for '{word}' in SQLite database")
+                    print(f"DEBUG: No translation found for '{word}' in SQLite database")
+                return "[no translation found]"
+                
+            # If using dictionary memory cache
             # First check in cache
             if word.lower() in self.word_dict:
                 if self.debug_mode:
@@ -352,12 +419,12 @@ class TranslationService:
             if os.path.exists(os.path.join(os.path.dirname(__file__), 'db', 'master-es-en.data')):
                 try:
                     # Only look up online if we have db.py available
-                    if os.path.exists(os.path.join(os.path.dirname(__file__), 'db.py')):
+                    if os.path.exists(os.path.join(os.path.dirname(__file__), 'db', 'db.py')):
                         logger.debug(f"Attempting online lookup for '{word}'")
                         print(f"DEBUG: Attempting online lookup for '{word}'")
                         import subprocess
                         result = subprocess.run(
-                            ['python', os.path.join(os.path.dirname(__file__), 'db.py'), '--online', word],
+                            ['python3', os.path.join(os.path.dirname(__file__), 'db', 'db.py'), '--online', word],
                             capture_output=True, text=True
                         )
                         if result.returncode == 0 and 'Found online:' in result.stdout:
@@ -455,6 +522,14 @@ class TranslationService:
         self.to_lang = to_lang
         logger.info(f"Using {from_lang}-{to_lang} dictionary for translations")
         print(f"Using {from_lang}-{to_lang} dictionary for translations")
+
+    def __del__(self):
+        # Close SQLite connection if it exists
+        if hasattr(self, 'db_conn') and self.db_conn:
+            try:
+                self.db_conn.close()
+            except:
+                pass
 
 # Core RSS functionality
 class RSSParser:
