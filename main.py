@@ -206,15 +206,22 @@ class TranslationService:
         words = line.split()
         translated_words = []
         for word in words:
+            # Clean the word of punctuation
             clean_word = word.strip('.,!?:;()"\'')
+            
+            # Get prefix and suffix (punctuation)
             prefix = word[:len(word)-len(clean_word)] if len(clean_word) < len(word) else ''
             suffix = word[len(clean_word):] if len(clean_word) < len(word) else ''
+            
             if clean_word:
+                # Get translation (don't duplicate the word itself)
                 translation = self.lookup_word(clean_word.lower())
                 if translation in ("[no translation found]", "[lookup error]"):
+                    # If no translation, just use original word
                     translated_words.append(prefix + clean_word + suffix)
                 else:
-                    translated_words.append(prefix + translation + suffix)
+                    # Don't use the prefix again with the translation
+                    translated_words.append(translation + suffix)
             else:
                 translated_words.append(word)
         return ' '.join(translated_words)
