@@ -42,7 +42,7 @@ class TranslationService:
         # Look for dictionary in various locations
         dict_paths = [
             os.path.join(os.path.dirname(__file__), 'db', 'Spanish-English-Dictionary.mobi'),
-            os.path.join(os.path.dirname(__file__), 'db', 'freedict-spa-eng-0.3.1.slob'),
+            # SLOB format removed, focusing only on MOBI as requested
         ]
         
         for dict_path in dict_paths:
