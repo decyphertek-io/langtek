@@ -13,6 +13,7 @@ import requests
 import html
 import sys
 import random
+import queue
 from io import BytesIO
 from PIL import Image as PILImage
 from kivy.app import App
@@ -47,10 +48,17 @@ class TranslationService:
     def __init__(self):
         self.from_lang = 'es'
         self.to_lang = 'en'
-        self.word_dict = {}
+        self.word_dict = {}  # In-memory cache
         self.translator_available = True  # Always available with Google Translate
         self.debug_mode = True  # Enable debugging
         self.used_dictionary = "Google Translate + SQLite"
+        
+        # Translation request queue and thread
+        self.translation_queue = queue.Queue()
+        self.queue_lock = threading.Lock()
+        self.translation_thread = threading.Thread(target=self._process_translation_queue, daemon=True)
+        self.max_requests_per_minute = 10  # Adjust as needed to prevent API limits
+        self.request_timestamps = []
         
         logger.info("Initializing TranslationService with Google Translate")
         
@@ -61,6 +69,9 @@ class TranslationService:
         
         # Add some basic common words to avoid hitting Google Translate too much
         self.add_common_words()
+        
+        # Start the translation queue processing thread
+        self.translation_thread.start()
         
         # Run a test with common Spanish words to verify everything is working
         self.test_dictionary()
@@ -173,74 +184,91 @@ class TranslationService:
         logger.info("======================")
         print("======================\n")
     
-    def lookup_word(self, word):
-        """Look up a word in the database or online if not found"""
-        if not word:
-            logger.debug(f"Empty word passed to lookup_word")
-            return "[no translation found]"
+    def _process_translation_queue(self):
+        """Background thread that processes translation requests in the queue"""
+        logger.info("Translation queue processor thread started")
         
-        try:
-            word_lower = word.lower().strip()
-            
-            # First check in memory cache (fastest)
-            if word_lower in self.word_dict:
-                if self.debug_mode:
-                    logger.debug(f"Found '{word}' in memory cache")
-                    print(f"DEBUG: Found '{word}' in memory cache")
-                return self.word_dict[word_lower]
-            
-            # Next check in SQLite database
-            self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
-            result = self.db_cursor.fetchone()
-            
-            if result:
-                if self.debug_mode:
-                    logger.debug(f"Found '{word}' in database")
-                    print(f"DEBUG: Found '{word}' in database")
+        while True:
+            try:
+                # Get a translation request from the queue
+                request = self.translation_queue.get(timeout=1)
+                if not request:
+                    self.translation_queue.task_done()
+                    continue
+                    
+                word, from_lang, to_lang, callback = request
                 
-                # Add to memory cache for faster future lookups
-                self.word_dict[word_lower] = result[0]
-                return result[0]
-            
-            # If not found locally, look up online with Google Translate
-            if self.debug_mode:
-                logger.debug(f"Looking up '{word}' online")
-                print(f"DEBUG: Looking up '{word}' online")
+                # Rate limiting - ensure we don't exceed max_requests_per_minute
+                with self.queue_lock:
+                    current_time = time.time()
+                    # Remove timestamps older than 1 minute
+                    self.request_timestamps = [ts for ts in self.request_timestamps if current_time - ts < 60]
+                    
+                    if len(self.request_timestamps) >= self.max_requests_per_minute:
+                        # We've hit our rate limit, wait until we can make another request
+                        sleep_time = 60 - (current_time - self.request_timestamps[0])
+                        if sleep_time > 0:
+                            logger.debug(f"Rate limiting: waiting {sleep_time:.2f}s before next translation")
+                            time.sleep(sleep_time)
+                    
+                    # Add the current timestamp
+                    self.request_timestamps.append(time.time())
                 
-            translation = self.google_translate(word_lower)
-            
-            if translation:
-                if self.debug_mode:
-                    logger.debug(f"Found '{word}' online: {translation}")
-                    print(f"DEBUG: Found '{word}' online: {translation}")
-                
-                # Save to database
+                # Check database first
+                translation = None
                 try:
-                    self.db_cursor.execute(
-                        'INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                        (word_lower, translation, 'google')
-                    )
-                    self.db_conn.commit()
+                    db_conn = sqlite3.connect(self.db_file)
+                    db_cursor = db_conn.cursor()
+                    db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word.lower(),))
+                    result = db_cursor.fetchone()
+                    if result:
+                        translation = result[0]
+                        logger.debug(f"Queue: Found '{word}' in database")
+                    db_conn.close()
                 except Exception as db_error:
-                    logger.error(f"Error saving translation to database: {db_error}")
+                    logger.error(f"Queue: Database error: {db_error}")
                 
-                # Add to memory cache
-                self.word_dict[word_lower] = translation
+                # If not in database, perform online translation
+                if not translation:
+                    try:
+                        translation = self._perform_online_translation(word, from_lang, to_lang)
+                        if translation:
+                            # Save to database
+                            try:
+                                db_conn = sqlite3.connect(self.db_file)
+                                db_cursor = db_conn.cursor()
+                                db_cursor.execute(
+                                    'INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                                    (word.lower(), translation, 'google')
+                                )
+                                db_conn.commit()
+                                db_conn.close()
+                                logger.debug(f"Queue: Saved '{word}' to database")
+                            except Exception as save_error:
+                                logger.error(f"Queue: Error saving to database: {save_error}")
+                    except Exception as translate_error:
+                        logger.error(f"Queue: Translation error: {translate_error}")
                 
-                return translation
-            
-            if self.debug_mode:
-                logger.debug(f"No translation found for '{word}'")
-                print(f"DEBUG: No translation found for '{word}'")
-            return "[no translation found]"
-        except Exception as e:
-            if self.debug_mode:
-                logger.error(f"Lookup error for '{word}': {e}")
-                print(f"DEBUG: Lookup error for '{word}': {e}")
-            return "[lookup error]"
+                # Call the callback with the result
+                if callback:
+                    try:
+                        callback(word, translation or "[no translation found]")
+                    except Exception as callback_error:
+                        logger.error(f"Queue: Callback error: {callback_error}")
+                
+                # Mark task as done
+                self.translation_queue.task_done()
+                
+            except queue.Empty:
+                # No requests in queue, just continue
+                pass
+            except Exception as e:
+                logger.error(f"Queue processor error: {e}")
+                # Sleep a bit to prevent tight looping if there's an error
+                time.sleep(0.5)
     
-    def google_translate(self, word, from_lang='es', to_lang='en'):
-        """Look up a word using Google Translate API (or free alternative)"""
+    def _perform_online_translation(self, word, from_lang='es', to_lang='en'):
+        """Perform actual online translation (for queue processor)"""
         try:
             # Using MyMemory API (free, no authentication required)
             url = f"https://api.mymemory.translated.net/get?q={word}&langpair={from_lang}|{to_lang}"
@@ -278,6 +306,112 @@ class TranslationService:
         except Exception as e:
             logger.error(f"Unexpected error during translation: {e}")
             return None
+
+    def queue_translation(self, word, callback=None, from_lang=None, to_lang=None):
+        """Add a word to the translation queue"""
+        if not word:
+            return
+            
+        # Use default languages if not specified
+        from_lang = from_lang or self.from_lang
+        to_lang = to_lang or self.to_lang
+        
+        # Add request to queue
+        self.translation_queue.put((word, from_lang, to_lang, callback))
+        logger.debug(f"Added '{word}' to translation queue")
+        
+    def lookup_word(self, word):
+        """Look up a word in the database or online if not found"""
+        if not word:
+            logger.debug(f"Empty word passed to lookup_word")
+            return "[no translation found]"
+        
+        try:
+            word_lower = word.lower().strip()
+            
+            # First check in memory cache (fastest)
+            if word_lower in self.word_dict:
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' in memory cache")
+                    print(f"DEBUG: Found '{word}' in memory cache")
+                return self.word_dict[word_lower]
+            
+            # Next check in SQLite database
+            self.db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
+            result = self.db_cursor.fetchone()
+            
+            if result:
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' in database")
+                    print(f"DEBUG: Found '{word}' in database")
+                
+                # Add to memory cache for faster future lookups
+                self.word_dict[word_lower] = result[0]
+                return result[0]
+            
+            # If not found locally, first check if we're under the rate limit
+            current_time = time.time()
+            with self.queue_lock:
+                # Remove timestamps older than 1 minute
+                self.request_timestamps = [ts for ts in self.request_timestamps if current_time - ts < 60]
+                if len(self.request_timestamps) >= self.max_requests_per_minute:
+                    # We're at the rate limit, return not found and queue for later update
+                    if self.debug_mode:
+                        logger.debug(f"Rate limit hit, queueing '{word}' for later translation")
+                        print(f"DEBUG: Rate limit hit, queueing '{word}' for later translation")
+                    
+                    # Queue it for later update with a callback that adds to memory cache
+                    def update_cache(word, translation):
+                        self.word_dict[word.lower()] = translation
+                        logger.debug(f"Updated cache with delayed translation for '{word}'")
+                    
+                    self.queue_translation(word, update_cache)
+                    return "[no translation found yet]"
+            
+            # We're under the rate limit, do direct online lookup
+            if self.debug_mode:
+                logger.debug(f"Looking up '{word}' online")
+                print(f"DEBUG: Looking up '{word}' online")
+                
+            translation = self.google_translate(word_lower)
+            
+            if translation:
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' online: {translation}")
+                    print(f"DEBUG: Found '{word}' online: {translation}")
+                
+                # Save to database
+                try:
+                    self.db_cursor.execute(
+                        'INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                        (word_lower, translation, 'google')
+                    )
+                    self.db_conn.commit()
+                except Exception as db_error:
+                    logger.error(f"Error saving translation to database: {db_error}")
+                
+                # Add to memory cache
+                self.word_dict[word_lower] = translation
+                
+                # Add timestamp for rate limiting
+                with self.queue_lock:
+                    self.request_timestamps.append(time.time())
+                
+                return translation
+            
+            if self.debug_mode:
+                logger.debug(f"No translation found for '{word}'")
+                print(f"DEBUG: No translation found for '{word}'")
+            return "[no translation found]"
+        except Exception as e:
+            if self.debug_mode:
+                logger.error(f"Lookup error for '{word}': {e}")
+                print(f"DEBUG: Lookup error for '{word}': {e}")
+            return "[lookup error]"
+    
+    def google_translate(self, word, from_lang='es', to_lang='en'):
+        """Look up a word using Google Translate API (or free alternative)"""
+        return self._perform_online_translation(word, from_lang, to_lang)
     
     def translate_text(self, text):
         if not text:
@@ -355,6 +489,14 @@ class TranslationService:
         try:
             if hasattr(self, 'db_conn') and self.db_conn:
                 self.db_conn.close()
+        except:
+            pass
+        
+        # Try to shut down the queue gracefully
+        try:
+            if hasattr(self, 'translation_queue'):
+                # Add None to signal thread to stop
+                self.translation_queue.put(None)
         except:
             pass
 
