@@ -926,7 +926,7 @@ KV = '''
 <AddFeedDialog>:
         title: 'Add RSS Feed'
         size_hint: 0.9, 0.3
-        background_color: 0.25, 0.25, 0.25, 1
+        background_color: 0.3, 0.3, 0.3, 1
         title_color: 1, 1, 1, 1
         BoxLayout:
                 orientation: 'vertical'
@@ -940,8 +940,10 @@ KV = '''
                         height: dp(50)
                         padding: dp(12)
                         font_size: '16sp'
-                        foreground_color: 0, 0, 0, 1
-                        background_color: 0.9, 0.9, 0.9, 1
+                        foreground_color: 1, 1, 1, 1
+                        background_color: 0.2, 0.2, 0.2, 1
+                        cursor_color: 1, 1, 1, 1
+                        hint_text_color: 0.7, 0.7, 0.7, 1
                 BoxLayout:
                         orientation: 'horizontal'
                         size_hint_y: None
@@ -949,8 +951,8 @@ KV = '''
                         spacing: dp(16)
                         Button:
                                 text: 'Cancel'
-                                background_color: 0.7, 0.7, 0.7, 1
-                                color: 0, 0, 0, 1
+                                background_color: 0.5, 0.5, 0.5, 1
+                                color: 1, 1, 1, 1
                                 on_release: root.dismiss()
                         Button:
                                 text: 'Add'
