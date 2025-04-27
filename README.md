@@ -46,5 +46,5 @@ SELECT * FROM translations WHERE word = 'papa';
 # 30|papa|father|common|2025-04-26 22:56:57
 
 # 5. Exit SQLite
-ctrl +d 
+.quit
 ```
