@@ -158,61 +158,10 @@ class TranslationService:
     
     def add_common_words(self):
         """Add common Spanish words to avoid hitting translation APIs too much"""
-        common_words = {
-            "hola": "hello",
-            "adiós": "goodbye",
-            "gracias": "thank you",
-            "por favor": "please",
-            "sí": "yes",
-            "no": "no",
-            "buenos días": "good morning",
-            "buenas tardes": "good afternoon",
-            "buenas noches": "good evening",
-            "cómo estás": "how are you",
-            "bien": "good",
-            "mal": "bad",
-            "casa": "house",
-            "perro": "dog",
-            "gato": "cat",
-            "libro": "book",
-            "de": "of",
-            "la": "the",
-            "el": "the",
-            "y": "and",
-            "a": "to",
-            "en": "in",
-            "con": "with",
-            "por": "for",
-            "para": "for",
-            "su": "his/her",
-            "mi": "my",
-            "tu": "your",
-            "líder": "leader",
-            "papa": "potato",
-            "funeral": "funeral",
-            "puentes": "bridges",
-            "construir": "build",
-            "Francia": "France",
-            "Ucrania": "Ukraine"
-        }
-        
-        count = 0
-        conn = self._get_db_connection()
-        cursor = conn.cursor()
-        
-        for spanish, english in common_words.items():
-            try:
-                cursor.execute(
-                    'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                    (spanish.lower(), english, 'common')
-                )
-                count += 1
-            except:
-                pass
-        
-        conn.commit()
-        logger.info(f"Added {count} common words to database")
-        print(f"Added {count} common words to database")
+        # Empty method - we'll rely on translation APIs and DB to build our 
+        # translation database instead of manually adding words
+        logger.info("Manual common words population disabled - using APIs only")
+        print("Manual common words dictionary disabled - using translation APIs only")
             
     def test_dictionary(self):
         """Test the translation service with some common Spanish words"""
@@ -320,86 +269,9 @@ class TranslationService:
                 time.sleep(0.5)
     
     def _perform_online_translation(self, word, from_lang='es', to_lang='en'):
-        """Perform actual online translation using LibreTranslate and fall back to APIs if needed"""
+        """Perform actual online translation using multiple APIs with fallback"""
         
-        # First try LibreTranslate offline translation
-        try:
-            if not hasattr(self, 'lt_initialized'):
-                # Check if libretranslate is installed
-                try:
-                    import libretranslate
-                    self.lt_initialized = True
-                    if self.debug_mode:
-                        print(f"DEBUG: Using LibreTranslate for offline translation")
-                except ImportError:
-                    self.lt_initialized = False
-                    if self.debug_mode:
-                        print(f"DEBUG: LibreTranslate not installed, falling back to online APIs")
-            
-            if self.lt_initialized:
-                try:
-                    # Use local libretranslate for translation
-                    import subprocess
-                    import sys
-                    import requests
-                    import time
-                    
-                    # Check if the server is already running
-                    try:
-                        response = requests.get("http://localhost:5000/languages")
-                        server_running = response.status_code == 200
-                    except:
-                        server_running = False
-                    
-                    # Start a local server if not running
-                    if not server_running and not hasattr(self, 'lt_process'):
-                        if self.debug_mode:
-                            print(f"DEBUG: Starting LibreTranslate server with es,en languages")
-                        
-                        # Start in a way that doesn't block
-                        from threading import Thread
-                        def start_server():
-                            self.lt_process = subprocess.Popen(
-                                [sys.executable, '-m', 'libretranslate', '--load-only', 'es,en', '--disable-web-ui'],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE
-                            )
-                        
-                        Thread(target=start_server, daemon=True).start()
-                        # Give server time to start
-                        time.sleep(5)
-                    
-                    # Make the translation request
-                    translation_response = requests.post(
-                        "http://localhost:5000/translate",
-                        json={
-                            "q": word,
-                            "source": from_lang,
-                            "target": to_lang
-                        }
-                    )
-                    
-                    if translation_response.status_code == 200:
-                        data = translation_response.json()
-                        translation = data.get("translatedText")
-                        
-                        if translation and translation != word:
-                            if self.debug_mode:
-                                logger.debug(f"Translated '{word}' using LibreTranslate: {translation}")
-                                print(f"DEBUG: Translated '{word}' using LibreTranslate: {translation}")
-                            
-                            return translation
-                        
-                except Exception as e:
-                    logger.error(f"LibreTranslate error: {e}")
-                    if self.debug_mode:
-                        print(f"DEBUG: LibreTranslate error: {str(e)[:100]}")
-        
-        except Exception as lt_error:
-            logger.error(f"Error setting up LibreTranslate: {lt_error}")
-            if self.debug_mode:
-                print(f"DEBUG: Error setting up LibreTranslate: {str(lt_error)[:100]}")
-        
-        # Fall back to existing APIs if LibreTranslate fails
+        # Try each API until one succeeds
         for api_config in self.translation_apis:
             api_name = api_config['name']
             try:
@@ -430,14 +302,17 @@ class TranslationService:
                 if translation:
                     logger.debug(f"Successfully translated '{word}' using {api_name}")
                     if self.debug_mode:
-                        print(f"DEBUG: Translated '{word}' using {api_name} API")
-                    return translation
+                        print(f"DEBUG: Translated '{word}' using API: {api_name}")
+                    # Return both the translation and the API used
+                    return {"text": translation, "api": api_name}
                     
             except Exception as e:
                 logger.error(f"Error with {api_name} API: {e}")
+                if self.debug_mode:
+                    print(f"DEBUG: Error with {api_name} API: {str(e)[:100]}")
         
-        # If all methods fail, return None
-        logger.error(f"All translation methods failed for '{word}'")
+        # If all APIs fail, return None
+        logger.error(f"All translation APIs failed for '{word}'")
         return None
     
     def _translate_mymemory(self, word, from_lang='es', to_lang='en'):
@@ -548,7 +423,7 @@ class TranslationService:
         logger.debug(f"Added '{word}' to translation queue")
                 
     def lookup_word(self, word):
-        """Look up a word in the cache or translate it using offline translator"""
+        """Look up a word in the database or online if not found"""
         if not word:
             logger.debug("Empty word passed to lookup_word")
             return "[no translation found]"
@@ -571,7 +446,7 @@ class TranslationService:
                     print(f"DEBUG: Found '{word}' in memory cache{source_info}")
                 return translation
             
-            # Check in database cache
+            # Check directly in SQLite translations.db database
             conn = self._get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word_lower,))
@@ -589,43 +464,82 @@ class TranslationService:
                 self.word_dict[word_lower] = {"text": translation, "source": source}
                 return translation
             
-            # Use offline translator if available
-            if self.translator and self.translator_available:
-                if self.debug_mode:
-                    logger.debug(f"Translating '{word}' with offline translator")
-                    print(f"DEBUG: Translating '{word}' with offline translator")
-                
-                translation = translate_word(word_lower, self.translator)
-                source = "argos_translate"
-                
-                if translation and translation != word_lower:
-                    if self.debug_mode:
-                        logger.debug(f"Translated '{word}' to '{translation}' using Argos Translate")
-                        print(f"DEBUG: Translated '{word}' to '{translation}' using Argos Translate")
-                    
-                    # Save to database
-                    try:
-                        conn = self._get_db_connection()
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            'INSERT OR REPLACE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                            (word_lower, translation, source)
-                        )
-                        conn.commit()
-                    except Exception as db_error:
-                        logger.error(f"Error saving translation to database: {db_error}")
-                    
-                    # Add to memory cache
-                    self.word_dict[word_lower] = {"text": translation, "source": source}
-                    
-                    return translation
+            # If not found locally, check if we're under any API rate limit
+            current_time = time.time()
+            can_translate_now = False
             
-            # If no translation found
+            # Check if any API is available
+            for api_config in self.translation_apis:
+                with api_config['lock']:
+                    # Remove timestamps older than 1 minute
+                    api_config['timestamps'] = [ts for ts in api_config['timestamps'] 
+                                             if current_time - ts < 60]
+                    if len(api_config['timestamps']) < api_config['max_per_minute']:
+                        can_translate_now = True
+                        break
+            
+            if not can_translate_now:
+                # We're at the rate limit for all APIs, return placeholder and queue for later
+                if self.debug_mode:
+                    logger.debug(f"All APIs rate limited, queueing '{word}' for later translation")
+                    print(f"DEBUG: All APIs rate limited, queueing '{word}' for later translation")
+                
+                # Queue it for later update with a callback that adds to memory cache
+                def update_cache(word_to_update, translation):
+                    if isinstance(translation, dict):
+                        self.word_dict[word_to_update.lower()] = translation
+                    else:
+                        self.word_dict[word_to_update.lower()] = {"text": translation, "source": "delayed_api"}
+                    logger.debug(f"Updated cache with delayed translation for '{word_to_update}'")
+                    # Check if pending translations need UI refresh
+                    self._check_pending_translations()
+                
+                self.queue_translation(word, update_cache)
+                
+                # Add to pending translations
+                self.pending_translations[word] = True
+                
+                return "[translating...]"
+            
+            # We have at least one API under rate limit, do direct online lookup
+            if self.debug_mode:
+                logger.debug(f"Looking up '{word}' online")
+                print(f"DEBUG: Looking up '{word}' online")
+                
+            result = self._perform_online_translation(word_lower)
+            
+            if result and isinstance(result, dict):
+                translation = result["text"]
+                api_used = result["api"]
+                source_info = f" [source: {api_used}]"
+                
+                if self.debug_mode:
+                    logger.debug(f"Found '{word}' online using {api_used}: {translation}")
+                    print(f"DEBUG: Found '{word}' online using {api_used}: {translation}")
+                
+                # Save to database using thread-local connection
+                try:
+                    conn = self._get_db_connection()
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        'INSERT OR REPLACE INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                        (word_lower, translation, api_used)
+                    )
+                    conn.commit()
+                except Exception as db_error:
+                    logger.error(f"Error saving translation to database: {db_error}")
+                    if self.debug_mode:
+                        print(f"DEBUG: Error saving to database: {str(db_error)[:100]}")
+                
+                # Add to memory cache
+                self.word_dict[word_lower] = {"text": translation, "source": api_used}
+                
+                return translation
+            
             if self.debug_mode:
                 logger.debug(f"No translation found for '{word}'")
                 print(f"DEBUG: No translation found for '{word}'")
             return "[no translation found]"
-        
         except Exception as e:
             if self.debug_mode:
                 logger.error(f"Lookup error for '{word}': {e}")
@@ -633,7 +547,7 @@ class TranslationService:
             
             # On error, add to memory cache with an error message to prevent repeated lookups
             self.word_dict[word_lower] = {"text": "[error]", "source": "error"}
-            return "[error]"
+            return "[error]"  # Shorter message that won't cause concatenation errors
     
     def google_translate(self, word, from_lang='es', to_lang='en'):
         """Look up a word using Google Translate API (or free alternative)"""
@@ -1872,63 +1786,6 @@ class RSSApp(App):
             logger.error(f"Error deleting translation: {e}")
             if self.db_editor_screen:
                 self.db_editor_screen.ids.status_label.text = f"Error: {e}"
-
-def setup_offline_translator():
-    """Setup offline translation using LibreTranslate/Argos Translate"""
-    import argostranslate.package
-    import argostranslate.translate
-    
-    from_code = "es"
-    to_code = "en"
-    
-    try:
-        # First check if package is already installed
-        installed_languages = argostranslate.translate.get_installed_languages()
-        from_lang = next((lang for lang in installed_languages if lang.code == from_code), None)
-        to_lang = next((lang for lang in installed_languages if lang.code == to_code), None)
-        
-        if from_lang is None or to_lang is None:
-            # Need to download and install translation package
-            print("Setting up offline translation (es-en)...")
-            argostranslate.package.update_package_index()
-            available_packages = argostranslate.package.get_available_packages()
-            package_to_install = next(
-                filter(
-                    lambda x: x.from_code == from_code and x.to_code == to_code, 
-                    available_packages
-                )
-            )
-            download_path = package_to_install.download()
-            argostranslate.package.install_from_path(download_path)
-            
-            # Refresh installed languages after installation
-            installed_languages = argostranslate.translate.get_installed_languages()
-            from_lang = next((lang for lang in installed_languages if lang.code == from_code), None)
-            to_lang = next((lang for lang in installed_languages if lang.code == to_code), None)
-            
-        if from_lang and to_lang:
-            translation = from_lang.get_translation(to_lang)
-            print(f"Offline translation ready: es→en")
-            return translation
-        else:
-            print("Failed to setup translation")
-            return None
-            
-    except Exception as e:
-        print(f"Error setting up offline translation: {str(e)}")
-        return None
-
-def translate_word(word, translator):
-    """Translate a word using the offline translator"""
-    if not translator:
-        return "[translation error]"
-        
-    try:
-        translation = translator.translate(word.lower().strip())
-        return translation
-    except Exception as e:
-        print(f"Translation error: {str(e)}")
-        return "[translation error]"
 
 if __name__ == '__main__':
     RSSApp().run()
