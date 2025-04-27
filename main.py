@@ -49,26 +49,18 @@ class TranslationService:
     def __init__(self):
         self.from_lang = 'es'
         self.to_lang = 'en'
-        self.word_dict = {}  # In-memory cache
-        self.translator_available = True  # Always available with Google Translate
-        self.debug_mode = True  # Enable debugging
+        self.word_dict = {}
+        self.translator_available = True
+        self.debug_mode = True
         self.used_dictionary = "Translation APIs + SQLite"
         
-        # Translation request queue and thread
         self.translation_queue = queue.Queue()
         self.queue_lock = threading.Lock()
         self.translation_thread = threading.Thread(target=self._process_translation_queue, daemon=True)
-        self.max_requests_per_minute = 10  # Adjust as needed to prevent API limits
+        self.max_requests_per_minute = 10
         self.request_timestamps = []
         
-        # Translation APIs with rate limits
         self.translation_apis = [
-            {
-                'name': 'MyMemory',
-                'max_per_minute': 10,
-                'timestamps': [],
-                'lock': threading.Lock()
-            },
             {
                 'name': 'LibreTranslate',
                 'max_per_minute': 5,
@@ -80,34 +72,41 @@ class TranslationService:
                 'max_per_minute': 8,
                 'timestamps': [],
                 'lock': threading.Lock()
+            },
+            {
+                'name': 'DeepL',
+                'max_per_minute': 5,
+                'timestamps': [],
+                'lock': threading.Lock()
+            },
+            {
+                'name': 'Reverso',
+                'max_per_minute': 6,
+                'timestamps': [],
+                'lock': threading.Lock()
+            },
+            {
+                'name': 'MyMemory',
+                'max_per_minute': 10,
+                'timestamps': [],
+                'lock': threading.Lock()
             }
         ]
         
-        # For UI refreshing
         self.pending_translations = {}
         self.refresh_callback = None
         
         logger.info("Initializing TranslationService with multiple APIs")
         
-        # Initialize SQLite database
         self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
         self.db_file = os.path.join(self.db_dir, 'translations.db')
         
-        # Create thread-local storage for database connections
         self.thread_local = threading.local()
         
-        # Initialize database schema
         self._get_db_connection()
         self.init_database()
         
-        # Add some basic common words to avoid hitting translation APIs too much
-        self.add_common_words()
-        
-        # Start the translation queue processing thread
         self.translation_thread.start()
-        
-        # Run a test with common Spanish words to verify everything is working
-        self.test_dictionary()
     
     def set_refresh_callback(self, callback):
         """Set a function to call when pending translations are completed"""
@@ -155,34 +154,6 @@ class TranslationService:
             logger.error(f"Error initializing database: {e}")
             print(f"Error initializing database: {e}")
             self.translator_available = False
-    
-    def add_common_words(self):
-        """Add common Spanish words to avoid hitting translation APIs too much"""
-        # Empty method - we'll rely on translation APIs and DB to build our 
-        # translation database instead of manually adding words
-        logger.info("Manual common words population disabled - using APIs only")
-        print("Manual common words dictionary disabled - using translation APIs only")
-            
-    def test_dictionary(self):
-        """Test the translation service with some common Spanish words"""
-        print("\n=== TRANSLATION SERVICE TEST ===")
-        print(f"Using: {self.used_dictionary}")
-        print("Testing translation of common Spanish words:")
-        
-        test_words = ["hola", "casa", "perro", "gato", "libro", "papa", "Francia", "Ucrania", "líder", "de", "la"]
-        max_word_len = max(len(word) for word in test_words)
-        
-        for word in test_words:
-            translation = self.lookup_word(word)
-            found = translation != "[no translation found]" and translation != "[lookup error]"
-            status = "✓" if found else "✗"
-            padding = " " * (max_word_len - len(word))
-            result = f"  {word}{padding} → {translation} {status}"
-            logger.info(result)
-            print(result)
-            
-        logger.info("======================")
-        print("======================\n")
             
     def _process_translation_queue(self):
         """Background thread that processes translation requests in the queue"""
@@ -298,6 +269,10 @@ class TranslationService:
                     translation = self._translate_libretranslate(word, from_lang, to_lang)
                 elif api_name == 'Lingva':
                     translation = self._translate_lingva(word, from_lang, to_lang)
+                elif api_name == 'DeepL':
+                    translation = self._translate_deepl(word, from_lang, to_lang)
+                elif api_name == 'Reverso':
+                    translation = self._translate_reverso(word, from_lang, to_lang)
                 
                 if translation:
                     logger.debug(f"Successfully translated '{word}' using {api_name}")
@@ -387,6 +362,49 @@ class TranslationService:
         
         if 'translation' in data:
             return data['translation'].strip()
+        return None
+    
+    def _translate_deepl(self, word, from_lang='es', to_lang='en'):
+        """Translate using DeepL API (free tier)"""
+        # Get API key from https://www.deepl.com/pro#developer
+        api_key = "YOUR_DEEPL_API_KEY"  # Free tier available
+        url = "https://api-free.deepl.com/v2/translate"
+        
+        params = {
+            "auth_key": api_key,
+            "text": word,
+            "source_lang": from_lang.upper(),
+            "target_lang": to_lang.upper()
+        }
+        
+        response = requests.post(url, data=params, timeout=5)
+        data = response.json()
+        
+        if 'translations' in data and len(data['translations']) > 0:
+            return data['translations'][0]['text'].strip()
+        return None
+    
+    def _translate_reverso(self, word, from_lang='es', to_lang='en'):
+        """Translate using Reverso Context API"""
+        url = "https://api.reverso.net/translate/v1/translation"
+        
+        payload = {
+            "input": word,
+            "from": from_lang,
+            "to": to_lang,
+            "format": "text"
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=5)
+        data = response.json()
+        
+        if 'translation' in data:
+            return data['translation'][0].strip()
         return None
     
     def _check_pending_translations(self):
@@ -586,33 +604,53 @@ class TranslationService:
         words = line.split()
         translated_words = []
         for word in words:
-            # Log the word being processed
             logger.debug(f"Processing word: '{word}'")
             
-            # Clean the word of punctuation
-            clean_word = word.strip('.,!?:;()"\'')
+            # Extract punctuation
+            clean_word = re.sub(r'[^\w\s]', '', word)
+            prefix = ''
+            suffix = ''
             
-            # Get prefix and suffix (punctuation)
-            prefix = word[:len(word)-len(clean_word)] if len(clean_word) < len(word) else ''
-            suffix = word[len(clean_word):] if len(clean_word) < len(word) else ''
+            # Get prefix (punctuation at beginning)
+            match = re.match(r'^([^\w\s]*)(.*)', word)
+            if match:
+                prefix, remaining = match.groups()
+            
+            # Get suffix (punctuation at end)
+            match = re.match(r'(.*?)([^\w\s]*)$', word if not prefix else remaining)
+            if match:
+                word_part, suffix = match.groups()
+            
+            # Get the clean word
+            clean_word = word[len(prefix):len(word)-len(suffix)] if prefix or suffix else word
             
             logger.debug(f"Word: '{word}', Clean: '{clean_word}', Prefix: '{prefix}', Suffix: '{suffix}'")
             
-            if clean_word:
-                translation = self.lookup_word(clean_word.lower())
-                logger.debug(f"Translation for '{clean_word}': '{translation}'")
-                
-                if translation in ("[no translation found]", "[lookup error]"):
-                    # If no translation, just use original word
-                    translated_words.append(prefix + clean_word + suffix)
-                    logger.debug(f"Using original: '{prefix + clean_word + suffix}'")
-                else:
-                    # Only use the original punctuation from the word, not duplicated with translation
-                    translated_words.append(prefix + translation + suffix)
-                    logger.debug(f"Using translation: '{prefix + translation + suffix}'")
-            else:
+            # Handle empty word
+            if not clean_word:
                 translated_words.append(word)
                 logger.debug(f"Empty word, using as is: '{word}'")
+                continue
+            
+            # Check for capitalization
+            is_capitalized = clean_word[0].isupper() if clean_word else False
+            
+            # Lookup the word in lowercase
+            translation = self.lookup_word(clean_word.lower())
+            logger.debug(f"Translation for '{clean_word.lower()}': '{translation}'")
+            
+            if translation in ("[no translation found]", "[lookup error]"):
+                # If no translation, use original word
+                translated_words.append(prefix + clean_word + suffix)
+                logger.debug(f"Using original: '{prefix + clean_word + suffix}'")
+            else:
+                # Apply original capitalization to the translation
+                if is_capitalized and translation:
+                    translation = translation[0].upper() + translation[1:]
+                
+                # Add prefix and suffix
+                translated_words.append(prefix + translation + suffix)
+                logger.debug(f"Using translation: '{prefix + translation + suffix}'")
         
         result = ' '.join(translated_words)
         logger.debug(f"Translation complete: '{result}'")
