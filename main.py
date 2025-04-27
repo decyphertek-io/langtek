@@ -74,14 +74,14 @@ class TranslationService:
                 'lock': threading.Lock()
             },
             {
-                'name': 'DeepL',
-                'max_per_minute': 5,
+                'name': 'Apertium',
+                'max_per_minute': 10,
                 'timestamps': [],
                 'lock': threading.Lock()
             },
             {
-                'name': 'Reverso',
-                'max_per_minute': 6,
+                'name': 'DeepL',
+                'max_per_minute': 5,
                 'timestamps': [],
                 'lock': threading.Lock()
             },
@@ -267,12 +267,12 @@ class TranslationService:
                     translation = self._translate_libretranslate(word, from_lang, to_lang)
                 elif api_name == 'Lingva':
                     translation = self._translate_lingva(word, from_lang, to_lang)
+                elif api_name == 'Apertium':
+                    translation = self._translate_apertium(word, from_lang, to_lang)
                 elif api_name == 'DeepL':
                     translation = self._translate_deepl(word, from_lang, to_lang)
                 elif api_name == 'MyMemory':
                     translation = self._translate_mymemory(word, from_lang, to_lang)
-                elif api_name == 'Reverso':
-                    translation = self._translate_reverso(word, from_lang, to_lang)
                 
                 if translation:
                     logger.debug(f"Successfully translated '{word}' using {api_name}")
@@ -384,27 +384,24 @@ class TranslationService:
             return data['translations'][0]['text'].strip()
         return None
     
-    def _translate_reverso(self, word, from_lang='es', to_lang='en'):
-        """Translate using Reverso Context API"""
-        url = "https://api.reverso.net/translate/v1/translation"
+    def _translate_apertium(self, word, from_lang='es', to_lang='en'):
+        """Translate using Apertium API"""
+        base_url = "https://www.apertium.org/apy/translate"
         
-        payload = {
-            "input": word,
-            "from": from_lang,
-            "to": to_lang,
-            "format": "text"
+        params = {
+            "q": word,
+            "langpair": f"{from_lang}|{to_lang}"
         }
         
-        headers = {
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
+        try:
+            response = requests.get(base_url, params=params, timeout=5)
+            data = response.json()
+            
+            if 'responseData' in data and 'translatedText' in data['responseData']:
+                return data['responseData']['translatedText'].strip()
+        except Exception as e:
+            logger.error(f"Error with Apertium API: {e}")
         
-        response = requests.post(url, json=payload, headers=headers, timeout=5)
-        data = response.json()
-        
-        if 'translation' in data:
-            return data['translation'][0].strip()
         return None
     
     def _check_pending_translations(self):
