@@ -12,6 +12,8 @@ Python translation Libraries:
 ------------------------------
 * https://pypi.org/project/pyglossary/
 * https://pypi.org/project/libretranslate/
+* https://pypi.org/project/argostranslate/
+* https://pypi.org/project/apertium/
 * https://pypi.org/project/pymultidictionary/
 
 Spanish Offline Dictinaries(Using a custom one instead):
