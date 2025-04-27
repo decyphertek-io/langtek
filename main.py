@@ -1321,9 +1321,28 @@ class RSSApp(App):
     
     def show_article(self, article):
         title = article.get('title', 'No title available')
-        content = article.get('summary', 'No content available')
         link = article.get('link', '#')
         published = article.get('published', '')
+        
+        # Determine if this is a Clarin article by checking the URL
+        is_clarin = 'clarin.com' in link.lower()
+        
+        if is_clarin:
+            # For Clarin articles, we need to fetch the full content from the link
+            try:
+                logger.debug(f"Fetching full content for Clarin article: {link}")
+                content = self._fetch_full_article_content(link)
+                if not content:
+                    # Fallback to summary if content fetch fails
+                    content = article.get('summary', 'No content available')
+                    logger.warning(f"Failed to fetch full content, using summary for: {link}")
+            except Exception as e:
+                logger.error(f"Error fetching full Clarin article: {e}")
+                content = article.get('summary', 'No content available')
+        else:
+            # For non-Clarin articles, use the summary as before
+            content = article.get('summary', 'No content available')
+        
         clean_title = RSSParser.clean_html(title)
         clean_content = RSSParser.clean_html(content)
         
@@ -1350,10 +1369,43 @@ class RSSApp(App):
         
         self.article_translation_enabled = False
         if hasattr(self.article_screen.ids, 'article_translate_btn'):
-            self.article_screen.ids.article_translate_btn.text = 'Translate'  # Changed from 'T'
+            self.article_screen.ids.article_translate_btn.text = 'Translate'
         
         # Start pre-translating in the background
         threading.Thread(target=self._background_translate, args=(clean_content,), daemon=True).start()
+
+    def _fetch_full_article_content(self, url):
+        """Fetch full article content from a URL"""
+        try:
+            # Use requests to fetch the article
+            response = requests.get(url, timeout=10)
+            if response.status_code != 200:
+                logger.error(f"Failed to fetch article: {response.status_code}")
+                return None
+            
+            # Parse HTML content with regex
+            html_content = response.text
+            
+            # For Clarin articles, extract the main content
+            # This regex pattern looks for content between article body tags
+            if 'clarin.com' in url.lower():
+                # Look for the article body
+                body_match = re.search(r'<div\s+class="[^"]*article-body[^"]*">(.*?)</div>\s*<div\s+class="[^"]*related-content', 
+                                      html_content, re.DOTALL)
+                
+                if body_match:
+                    content = body_match.group(1)
+                    # Clean up the content
+                    content = re.sub(r'<script.*?</script>', '', content, flags=re.DOTALL | re.IGNORECASE)
+                    content = re.sub(r'<style.*?</style>', '', content, flags=re.DOTALL | re.IGNORECASE)
+                    content = re.sub(r'<[^>]+>', ' ', content)
+                    content = re.sub(r'\s+', ' ', content).strip()
+                    return content
+            
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching article content: {e}")
+            return None
     
     def _background_translate(self, content):
         """Pre-translate content in the background to make it ready when needed"""
@@ -1381,7 +1433,7 @@ class RSSApp(App):
         
         if self.article_translation_enabled:
             # Start progressive translation 
-            self.article_screen.ids.article_translate_btn.text = 'Original'  # Changed from 'O'
+            self.article_screen.ids.article_translate_btn.text = 'Original'
             
             # Translate the title
             title = self.current_article.get('title', '')
@@ -1417,7 +1469,7 @@ class RSSApp(App):
             # Also restore the header if it exists
             if hasattr(self.article_screen.ids, 'article_header'):
                 self.article_screen.ids.article_header.text = self.current_article['title']
-            self.article_screen.ids.article_translate_btn.text = 'Translate'  # Changed from 'T'
+            self.article_screen.ids.article_translate_btn.text = 'Translate'
     
     def _animate_translation(self, lines, current_line):
         """Progressively translate and update the content line by line"""
