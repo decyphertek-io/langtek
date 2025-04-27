@@ -870,12 +870,23 @@ KV = '''
                         markup: True
                 Button:
                         id: article_translate_btn
-                        text: 'T'
-                        font_size: '18sp'
+                        text: 'Translate'
+                        font_size: '16sp'
+                        bold: True
                         size_hint_x: None
-                        width: dp(56)
-                        background_color: 0.1, 0.1, 0.1, 1
+                        width: dp(120)
+                        height: dp(40)
+                        background_color: 0.2, 0.5, 0.8, 1  # Blue color
                         background_normal: ''
+                        border: (2, 2, 2, 2)
+                        color: 1, 1, 1, 1  # White text
+                        canvas.before:
+                                Color:
+                                        rgba: 0.2, 0.5, 0.8, 1  # Match background_color
+                                RoundedRectangle:
+                                        pos: self.pos
+                                        size: self.size
+                                        radius: [dp(8)]
                         on_release: app.toggle_article_translation()
         ScrollView:
                 id: article_scroll
@@ -1339,7 +1350,7 @@ class RSSApp(App):
         
         self.article_translation_enabled = False
         if hasattr(self.article_screen.ids, 'article_translate_btn'):
-            self.article_screen.ids.article_translate_btn.text = 'T'  # 'T' for Translate
+            self.article_screen.ids.article_translate_btn.text = 'Translate'  # Changed from 'T'
         
         # Start pre-translating in the background
         threading.Thread(target=self._background_translate, args=(clean_content,), daemon=True).start()
@@ -1370,7 +1381,19 @@ class RSSApp(App):
         
         if self.article_translation_enabled:
             # Start progressive translation 
-            self.article_screen.ids.article_translate_btn.text = 'O'  # 'O' for Original
+            self.article_screen.ids.article_translate_btn.text = 'Original'  # Changed from 'O'
+            
+            # Translate the title
+            title = self.current_article.get('title', '')
+            if title:
+                english_title = self.translator.word_for_word_line(title)
+                stacked_title = f"{title}\n[i][color=#777777]{english_title}[/color][/i]"
+                self.article_screen.article_title = stacked_title
+                # Also update the header if it exists
+                if hasattr(self.article_screen.ids, 'article_header'):
+                    self.article_screen.ids.article_header.text = stacked_title
+            
+            # Translate the content
             content = self.current_article['content']
             lines = content.split('\n')
             
@@ -1390,7 +1413,11 @@ class RSSApp(App):
         else:
             # Restore original content
             self.article_screen.article_content = self.current_article['content']
-            self.article_screen.ids.article_translate_btn.text = 'T'  # 'T' for Translate
+            self.article_screen.article_title = self.current_article['title']
+            # Also restore the header if it exists
+            if hasattr(self.article_screen.ids, 'article_header'):
+                self.article_screen.ids.article_header.text = self.current_article['title']
+            self.article_screen.ids.article_translate_btn.text = 'Translate'  # Changed from 'T'
     
     def _animate_translation(self, lines, current_line):
         """Progressively translate and update the content line by line"""
