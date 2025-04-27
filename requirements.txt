@@ -7,4 +7,5 @@ PyICU
 requests
 beautifulsoup4
 html-sanitizer
+libretranslate
 
