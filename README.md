@@ -2,7 +2,25 @@ KIVY RSS Reader in DEV
 ---------------------
 This app is built using Kivy , so it can be cross platform. Build once , deploy everywhere. The purpose of this RSS Feed is to learn spanish by reading. The idea is to have a line by line translation. When I use a free API , it is too slow and crashes the app, it does translate. I am working on getting an offline spanish Dictionary working with Pyglossary. It supports many formats, none seem to be working correctly? It is spanish/spanish , instead of Spanish / English . Also , working on functionality first before features or beauty. Troublebshooting , Work in progress. Expect glitches. 
 
-REARCH:
+Issues:
+------
+* Working on cleaning up the Database.
+* Some translators are adding * and Caps to the saved translations.
+* When fixing it adn rebuilding the DB, some words not being trasnlated.
+* I am actively fixing these issues and rebuilding the DB, when the DB is built runs smoothly. 
+* Please note this is in DEV. 
+
+Getting Started:
+----------------
+* Make sure python is installed
+* This was only tested on Linux.
+* from terminal run:
+```
+bash main.sh
+```
+* This will create a virtual python environment and run the application. 
+
+Research:
 =======
 * Not all of this is implemented. 
 * OR it was tested and didnt work as expected. 
@@ -15,6 +33,10 @@ Python translation Libraries:
 * https://pypi.org/project/argostranslate/
 * https://pypi.org/project/apertium/
 * https://pypi.org/project/pymultidictionary/
+
+Translator GUI APP:
+------------------
+* https://github.com/dialect-app/dialect
 
 Spanish Offline Dictinaries(Using a custom one instead):
 ---------------------------

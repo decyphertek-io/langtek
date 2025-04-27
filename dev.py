@@ -35,6 +35,7 @@ from functools import partial
 from kivy.metrics import dp
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from pyglossary.glossary_v2 import Glossary
+from datetime import datetime
 
 # Setup logging to file
 logging.basicConfig(
@@ -70,12 +71,6 @@ class TranslationService:
             {
                 'name': 'Lingva',
                 'max_per_minute': 20,
-                'timestamps': [],
-                'lock': threading.Lock()
-            },
-            {
-                'name': 'Apertium',
-                'max_per_minute': 30,
                 'timestamps': [],
                 'lock': threading.Lock()
             },
@@ -216,15 +211,7 @@ class TranslationService:
                         if translation:
                             # Save to database
                             try:
-                                # Get thread-local connection
-                                db_conn = self._get_db_connection()
-                                db_cursor = db_conn.cursor()
-                                db_cursor.execute(
-                                    'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                                    (word.lower(), translation, 'api')
-                                )
-                                db_conn.commit()
-                                logger.debug(f"Queue: Saved '{word}' to database")
+                                self._save_translation_to_db(word, translation)
                             except Exception as save_error:
                                 logger.error(f"Queue: Error saving to database: {save_error}")
                     except Exception as translate_error:
@@ -276,8 +263,6 @@ class TranslationService:
                     translation = self._translate_libretranslate(word, from_lang, to_lang)
                 elif api_name == 'Lingva':
                     translation = self._translate_lingva(word, from_lang, to_lang)
-                elif api_name == 'Apertium':
-                    translation = self._translate_apertium(word, from_lang, to_lang)
                 elif api_name == 'DeepL':
                     translation = self._translate_deepl(word, from_lang, to_lang)
                 
@@ -298,42 +283,51 @@ class TranslationService:
         return None
     
     def _translate_libretranslate(self, word, from_lang='es', to_lang='en'):
-        """Translate using LibreTranslate API"""
-        # Use more reliable public LibreTranslate instances
-        urls = [
-            "https://translate.argosopentech.com/translate",
+        """Translate using LibreTranslate API with better endpoint management"""
+        
+        # List of LibreTranslate endpoints in order of preference
+        endpoints = [
+            "https://lingva.ml/api/v1",  # This one seems to be working well based on logs
             "https://libretranslate.de/translate",
             "https://libretranslate.com/translate"
         ]
         
-        payload = {
-            "q": word,
-            "source": from_lang,
-            "target": to_lang,
-            "format": "text"
-        }
+        # Remove translate.argosopentech.com since it consistently fails with name resolution errors
         
-        headers = {"Content-Type": "application/json"}
-        
-        for url in urls:
+        for endpoint in endpoints:
             try:
-                response = requests.post(url, json=payload, headers=headers, timeout=5)
-                
-                # Check if we got a valid response
-                if response.status_code != 200:
-                    logger.debug(f"LibreTranslate API error: {response.status_code} from {url}")
-                    continue
+                if "lingva.ml" in endpoint:
+                    # Lingva has a different API format
+                    url = f"{endpoint}/{from_lang}/{to_lang}/{urllib.parse.quote(word)}"
+                    response = requests.get(url, timeout=5)
                     
-                # Try to parse JSON, handle empty responses
-                if response.text.strip():
-                    data = response.json()
-                    if 'translatedText' in data:
-                        return data['translatedText'].strip()
+                    if response.status_code == 200:
+                        data = response.json()
+                        if 'translation' in data:
+                            return data['translation']
+                else:
+                    # Standard LibreTranslate API format
+                    headers = {'Content-Type': 'application/json'}
+                    data = {
+                        'q': word,
+                        'source': from_lang,
+                        'target': to_lang,
+                        'format': 'text'
+                    }
+                    
+                    response = requests.post(endpoint, headers=headers, json=data, timeout=5)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'translatedText' in result:
+                            return result['translatedText']
+                    else:
+                        logger.debug(f"[LibreTranslate API error] {response.status_code} from {endpoint}")
+                    
             except Exception as e:
-                logger.error(f"Error with LibreTranslate API ({url}): {e}")
-                # Continue trying with next URL
+                logger.error(f"Error with LibreTranslate API ({endpoint}): {e}")
+                # Continue to the next endpoint
         
-        # If all URLs failed, return None
         return None
     
     def _translate_lingva(self, word, from_lang='es', to_lang='en'):
@@ -365,29 +359,6 @@ class TranslationService:
         
         if 'translations' in data and len(data['translations']) > 0:
             return data['translations'][0]['text'].strip()
-        return None
-    
-    def _translate_apertium(self, word, from_lang='es', to_lang='en'):
-        """Translate using Apertium API"""
-        base_url = "https://www.apertium.org/apy/translate"
-        
-        params = {
-            "q": word,
-            "langpair": f"{from_lang}|{to_lang}"
-        }
-        
-        try:
-            response = requests.get(base_url, params=params, timeout=5)
-            data = response.json()
-            
-            if 'responseData' in data and 'translatedText' in data['responseData']:
-                # Remove asterisks that Apertium adds to uncertain translations
-                translation = data['responseData']['translatedText'].strip()
-                translation = translation.replace("*", "")
-                return translation
-        except Exception as e:
-            logger.error(f"Error with Apertium API: {e}")
-        
         return None
     
     def _check_pending_translations(self):
@@ -656,6 +627,35 @@ class TranslationService:
             pass
         
         # No need to close connections - they're thread-local and will be cleaned up automatically
+
+    def _save_translation_to_db(self, word, translation):
+        """Save a word and its translation to the database"""
+        try:
+            if not word or not translation:
+                return
+            
+            # Extract the text from the translation if it's a dictionary
+            translation_text = translation["text"] if isinstance(translation, dict) else translation
+            # Get the source from the dictionary or use default
+            source = translation.get("api", "API") if isinstance(translation, dict) else "API"
+            
+            conn = self._get_db_connection()
+            cursor = conn.cursor()
+            
+            # Check if word already exists
+            cursor.execute("SELECT word FROM translations WHERE word=?", (word.lower(),))
+            exists = cursor.fetchone()
+            
+            if not exists:
+                cursor.execute(
+                    "INSERT INTO translations (word, translation, source, created_at) VALUES (?, ?, ?, ?)",
+                    (word.lower(), translation_text, source, datetime.now().isoformat())
+                )
+                conn.commit()
+                logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {source}")
+            
+        except Exception as e:
+            logger.error(f"[Queue       ] Error saving to database: {e}")
 
 # Core RSS functionality
 class RSSParser:
