@@ -63,25 +63,25 @@ class TranslationService:
         self.translation_apis = [
             {
                 'name': 'LibreTranslate',
-                'max_per_minute': 5,
+                'max_per_minute': 15,
                 'timestamps': [],
                 'lock': threading.Lock()
             },
             {
                 'name': 'Lingva',
-                'max_per_minute': 8,
+                'max_per_minute': 20,
                 'timestamps': [],
                 'lock': threading.Lock()
             },
             {
                 'name': 'Apertium',
-                'max_per_minute': 10,
+                'max_per_minute': 30,
                 'timestamps': [],
                 'lock': threading.Lock()
             },
             {
                 'name': 'DeepL',
-                'max_per_minute': 5,
+                'max_per_minute': 10,
                 'timestamps': [],
                 'lock': threading.Lock()
             }
@@ -368,7 +368,8 @@ class TranslationService:
         return None
     
     def _translate_apertium(self, word, from_lang='es', to_lang='en'):
-        """Translate using Apertium API"""
+        """Translate using Apertium API - less restrictive rate limits"""
+        # Apertium has less strict rate limiting than many other services
         base_url = "https://www.apertium.org/apy/translate"
         
         params = {
