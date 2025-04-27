@@ -7,7 +7,7 @@ Python translation Libraries:
 * https://pypi.org/project/pyglossary/
 * https://pypi.org/project/libretranslate/
 
-Spanish Offline Dictinaries:
+Spanish Offline Dictinaries(Using a custom one instead):
 ---------------------------
 * https://freedict.org/downloads/
 * https://www.wikdict.com/page/download
@@ -17,9 +17,13 @@ Update bad translations on the custom translations.db:
 ------------------------------------------------------
 ```
 EX: Papa Francis was being translated as Potato Fran
+* Removing bad translation sources in the custom db
+* The offline free sources often missing many words?
+* Will rebuild to have a clean DB, then can manually update any mistranslations. 
 
 # 1. Connect to database
-sqlite3 /langtek/db/translations.db
+cd /langtek/db
+sqlite3 translations.db
 
 # 2. View data
 SELECT * FROM translations WHERE word = 'papa';
@@ -35,6 +39,5 @@ SELECT * FROM translations WHERE word = 'papa';
 # 30|papa|father|common|2025-04-26 22:56:57
 
 # 5. Exit SQLite
-.exit
-
+ctrl +d 
 ```

@@ -342,6 +342,7 @@ class TranslationService:
                     api_config['timestamps'].append(current_time)
                 
                 # Translate using the appropriate API
+                translation = None
                 if api_name == 'MyMemory':
                     translation = self._translate_mymemory(word, from_lang, to_lang)
                 elif api_name == 'LibreTranslate':
@@ -351,10 +352,15 @@ class TranslationService:
                 
                 if translation:
                     logger.debug(f"Successfully translated '{word}' using {api_name}")
-                    return translation
+                    if self.debug_mode:
+                        print(f"DEBUG: Translated '{word}' using API: {api_name}")
+                    # Return both the translation and the API used
+                    return {"text": translation, "api": api_name}
                     
             except Exception as e:
                 logger.error(f"Error with {api_name} API: {e}")
+                if self.debug_mode:
+                    print(f"DEBUG: Error with {api_name} API: {str(e)[:100]}")
         
         # If all APIs fail, return None
         logger.error(f"All translation APIs failed for '{word}'")
@@ -475,64 +481,39 @@ class TranslationService:
         
         try:
             word_lower = word.lower().strip()
+            source_info = ""
             
             # First check in memory cache (fastest)
             if word_lower in self.word_dict:
+                if isinstance(self.word_dict[word_lower], dict):
+                    translation = self.word_dict[word_lower]["text"]
+                    source_info = f" [source: {self.word_dict[word_lower]['source']}]"
+                else:
+                    translation = self.word_dict[word_lower]
+                    source_info = " [source: cache]"
+                    
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' in memory cache")
-                    print(f"DEBUG: Found '{word}' in memory cache")
-                return self.word_dict[word_lower]
+                    logger.debug(f"Found '{word}' in memory cache{source_info}")
+                    print(f"DEBUG: Found '{word}' in memory cache{source_info}")
+                return translation
             
-            # Check in es-en.sqlite3 database
-            es_en_db_file = os.path.join(self.db_dir, 'es-en.sqlite3')
-            if os.path.exists(es_en_db_file):
-                try:
-                    conn = sqlite3.connect(es_en_db_file)
-                    cursor = conn.cursor()
-                    
-                    # Try each table from es-en.sqlite3
-                    table_queries = [
-                        ("SELECT translation FROM simple_translation WHERE word = ?", "simple_translation"),
-                        ("SELECT translation FROM translation WHERE word = ?", "translation"),
-                        ("SELECT translation FROM translation_grouped WHERE word = ?", "translation_grouped")
-                    ]
-                    
-                    for query, table_name in table_queries:
-                        try:
-                            cursor.execute(query, (word_lower,))
-                            result = cursor.fetchone()
-                            if result:
-                                if self.debug_mode:
-                                    logger.debug(f"Found '{word}' in es-en.sqlite3 database (table: {table_name})")
-                                    print(f"DEBUG: Found '{word}' in es-en.sqlite3 database (table: {table_name})")
-                                
-                                # Add to memory cache for faster future lookups
-                                self.word_dict[word_lower] = result[0]
-                                conn.close()
-                                return result[0]
-                        except sqlite3.OperationalError as e:
-                            # Log the error but continue trying other tables
-                            logger.debug(f"Error querying table {table_name}: {e}")
-                            
-                    conn.close()
-                except Exception as e:
-                    logger.error(f"Error querying es-en.sqlite3 database: {e}")
-                    # Continue to next lookup method
-            
-            # Next check in SQLite translations.db database
+            # Check directly in SQLite translations.db database
             conn = self._get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
+            cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word_lower,))
             result = cursor.fetchone()
             
             if result:
+                translation, source = result
+                source_info = f" [source: {source}]"
+                
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' in translations.db database")
-                    print(f"DEBUG: Found '{word}' in translations.db database")
+                    logger.debug(f"Found '{word}' in translations.db database{source_info}")
+                    print(f"DEBUG: Found '{word}' in translations.db database{source_info}")
                 
                 # Add to memory cache for faster future lookups
-                self.word_dict[word_lower] = result[0]
-                return result[0]
+                self.word_dict[word_lower] = {"text": translation, "source": source}
+                return translation
             
             # If not found locally, check if we're under any API rate limit
             current_time = time.time()
@@ -556,7 +537,10 @@ class TranslationService:
                 
                 # Queue it for later update with a callback that adds to memory cache
                 def update_cache(word_to_update, translation):
-                    self.word_dict[word_to_update.lower()] = translation
+                    if isinstance(translation, dict):
+                        self.word_dict[word_to_update.lower()] = translation
+                    else:
+                        self.word_dict[word_to_update.lower()] = {"text": translation, "source": "delayed_api"}
                     logger.debug(f"Updated cache with delayed translation for '{word_to_update}'")
                     # Check if pending translations need UI refresh
                     self._check_pending_translations()
@@ -573,27 +557,33 @@ class TranslationService:
                 logger.debug(f"Looking up '{word}' online")
                 print(f"DEBUG: Looking up '{word}' online")
                 
-            translation = self._perform_online_translation(word_lower)
+            result = self._perform_online_translation(word_lower)
             
-            if translation:
+            if result and isinstance(result, dict):
+                translation = result["text"]
+                api_used = result["api"]
+                source_info = f" [source: {api_used}]"
+                
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' online: {translation}")
-                    print(f"DEBUG: Found '{word}' online: {translation}")
+                    logger.debug(f"Found '{word}' online using {api_used}: {translation}")
+                    print(f"DEBUG: Found '{word}' online using {api_used}: {translation}")
                 
                 # Save to database using thread-local connection
                 try:
                     conn = self._get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute(
-                        'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                        (word_lower, translation, 'api')
+                        'INSERT OR REPLACE INTO translations (word, translation, source) VALUES (?, ?, ?)',
+                        (word_lower, translation, api_used)
                     )
                     conn.commit()
                 except Exception as db_error:
                     logger.error(f"Error saving translation to database: {db_error}")
+                    if self.debug_mode:
+                        print(f"DEBUG: Error saving to database: {str(db_error)[:100]}")
                 
                 # Add to memory cache
-                self.word_dict[word_lower] = translation
+                self.word_dict[word_lower] = {"text": translation, "source": api_used}
                 
                 return translation
             
@@ -604,10 +594,10 @@ class TranslationService:
         except Exception as e:
             if self.debug_mode:
                 logger.error(f"Lookup error for '{word}': {e}")
-                print(f"DEBUG: Lookup error for '{word}': {e}")
+                print(f"DEBUG: Lookup error for '{word}': {str(e)[:100]}")
             
             # On error, add to memory cache with an error message to prevent repeated lookups
-            self.word_dict[word_lower] = "[error]"
+            self.word_dict[word_lower] = {"text": "[error]", "source": "error"}
             return "[error]"  # Shorter message that won't cause concatenation errors
     
     def google_translate(self, word, from_lang='es', to_lang='en'):
