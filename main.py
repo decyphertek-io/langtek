@@ -107,11 +107,26 @@ class TranslationService:
         self.refresh_callback = callback
         
     def _get_db_connection(self):
-        """Get a thread-local database connection"""
+        """Get a thread-local database connection with better locking"""
         if not hasattr(self.thread_local, 'db_conn'):
-            # Create a new connection for this thread
-            self.thread_local.db_conn = sqlite3.connect(self.db_file)
+            # Create db directory if it doesn't exist
+            os.makedirs(self.db_dir, exist_ok=True)
+            
+            # Create a new connection for this thread with timeout
+            self.thread_local.db_conn = sqlite3.connect(
+                self.db_file, 
+                timeout=30.0,  # Wait up to 30 seconds for lock to clear
+                isolation_level=None  # Enable autocommit mode
+            )
+            
+            # Enable WAL mode for better concurrency
+            cursor = self.thread_local.db_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=30000")  # 30 seconds
+            
             logger.debug(f"Created new SQLite connection for thread {threading.get_ident()}")
+        
         return self.thread_local.db_conn
         
     def init_database(self):

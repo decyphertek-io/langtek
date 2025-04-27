@@ -1,14 +1,14 @@
 [
   {
-    "url": "https://www.eldiario.es/rss",
-    "title": "ElDiario.es - ElDiario.es"
-  },
-  {
     "url": "https://www.xataka.com/feedburner.xml",
     "title": "Xataka"
   },
   {
     "url": "https://es.gizmodo.com/feed",
     "title": "Gizmodo en Espa\u00f1ol"
+  },
+  {
+    "url": "https://www.clarin.com/rss/mundo/",
+    "title": "Clarin.com - Home - Mundo"
   }
 ]
