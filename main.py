@@ -1320,54 +1320,45 @@ class RSSApp(App):
             'content': clean_content
         }
         
-        # Stack Spanish and English translation in the title label, English in gray italics
-        english_title = self.translator.word_for_word_line(clean_title)
-        stacked_title = f"{clean_title}\n[i][color=#777777]{english_title}[/color][/i]"
+        # Check if article_screen already exists and has a parent
+        if self.article_screen and self.article_screen.parent:
+            self.article_screen.parent.remove_widget(self.article_screen)
         
-        # For content, interleave Spanish and English lines, English in gray italics
-        lines = clean_content.split('\n')
-        translated_lines = []
-        for line in lines:
-            if not line.strip():
-                translated_lines.append('')
-                continue
-            translated_lines.append(line)
-            translated_lines.append(f"[i][color=#777777]{self.translator.word_for_word_line(line)}[/color][/i]")
-        stacked_content = '\n'.join(translated_lines)
+        # Create new ArticleScreen if needed
+        self.article_screen = ArticleScreen() if not self.article_screen else self.article_screen
+        self.root.add_widget(self.article_screen)
         
-        image_url = RSSParser.get_image_url(article)
-        
-        if not self.article_screen:
-            self.article_screen = ArticleScreen()
-            self.root.add_widget(self.article_screen)
-            
-        self.article_screen.article_title = stacked_title
-        self.article_screen.article_content = stacked_content
+        self.article_screen.article_title = clean_title
+        self.article_screen.article_content = clean_content
         self.article_screen.article_link = link
-        self.article_screen.image_url = image_url
         self.article_screen.article_date = published
+        self.article_screen.image_url = RSSParser.get_image_url(article)
         self.article_screen.original_content = clean_content
         
-        self.article_translation_enabled = True
+        self.article_translation_enabled = False
         if hasattr(self.article_screen.ids, 'article_translate_btn'):
-            self.article_screen.ids.article_translate_btn.text = 'O'  # 'O' for Original
-            
-        # Schedule periodic checks for translation updates (every 2 seconds)
-        Clock.schedule_interval(self._check_translations_update, 2)
+            self.article_screen.ids.article_translate_btn.text = 'T'  # 'T' for Translate
+        
+        # Start pre-translating in the background
+        threading.Thread(target=self._background_translate, args=(clean_content,), daemon=True).start()
     
-    def _check_translations_update(self, dt):
-        """Check if there are any completed translations that should update the UI"""
-        if hasattr(self.translator, '_check_pending_translations'):
-            self.translator._check_pending_translations()
-    
-    def close_article(self):
-        if self.article_screen:
-            # Stop the translation update checker
-            Clock.unschedule(self._check_translations_update)
+    def _background_translate(self, content):
+        """Pre-translate content in the background to make it ready when needed"""
+        if not content:
+            return
             
-            self.root.remove_widget(self.article_screen)
-            self.article_screen = None
-            self.current_article = None
+        # Split content into lines
+        lines = content.split('\n')
+        
+        for line in lines:
+            if not line.strip():
+                continue
+                
+            # Pre-translate each line and cache the results
+            # This doesn't affect the UI yet, but prepares translations
+            self.translator.word_for_word_line(line)
+            
+        logger.debug("Background translation completed")
     
     def toggle_article_translation(self):
         if not self.article_screen or not self.current_article:
@@ -1376,14 +1367,66 @@ class RSSApp(App):
         self.article_translation_enabled = not self.article_translation_enabled
         
         if self.article_translation_enabled:
-            # Apply word-for-word translation
-            translated_content = self.translator.translate_text(self.current_article['content'])
-            self.article_screen.article_content = translated_content
+            # Start progressive translation 
             self.article_screen.ids.article_translate_btn.text = 'O'  # 'O' for Original
+            content = self.current_article['content']
+            lines = content.split('\n')
+            
+            # First, display original content with placeholders
+            displayed_lines = []
+            for i, line in enumerate(lines):
+                if not line.strip():
+                    displayed_lines.append('')
+                    continue
+                displayed_lines.append(line)
+                displayed_lines.append('[i][color=#777777]Translating...[/color][/i]')
+            
+            self.article_screen.article_content = '\n'.join(displayed_lines)
+            
+            # Then translate line by line with animation effect
+            Clock.schedule_once(lambda dt: self._animate_translation(lines, 0), 0.1)
         else:
             # Restore original content
             self.article_screen.article_content = self.current_article['content']
             self.article_screen.ids.article_translate_btn.text = 'T'  # 'T' for Translate
+    
+    def _animate_translation(self, lines, current_line):
+        """Progressively translate and update the content line by line"""
+        if not self.article_translation_enabled or current_line >= len(lines):
+            return
+            
+        if not lines[current_line].strip():
+            # Skip empty lines
+            Clock.schedule_once(lambda dt: self._animate_translation(lines, current_line + 1), 0.05)
+            return
+            
+        # Get current displayed content
+        if not hasattr(self.article_screen, 'ids') or not hasattr(self.article_screen.ids, 'article_content'):
+            return
+            
+        displayed_text = self.article_screen.article_content
+        displayed_lines = displayed_text.split('\n')
+        
+        # Translate current line
+        line = lines[current_line]
+        translation = self.translator.word_for_word_line(line)
+        
+        # Update the translation line
+        translation_line_index = current_line * 2 + 1
+        if translation_line_index < len(displayed_lines):
+            displayed_lines[translation_line_index] = f'[i][color=#777777]{translation}[/color][/i]'
+            
+        # Update display
+        self.article_screen.article_content = '\n'.join(displayed_lines)
+        
+        # Schedule next line
+        Clock.schedule_once(lambda dt: self._animate_translation(lines, current_line + 1), 0.1)
+    
+    def close_article(self):
+        if self.article_screen:
+            self.root.remove_widget(self.article_screen)
+            self.article_screen = None
+            self.current_article = None
     
     def show_menu(self):
         menu = MenuPopup()
@@ -1563,6 +1606,10 @@ class RSSApp(App):
         if menu:
             menu.dismiss()
             
+        # Check if db_editor_screen already exists and has a parent
+        if self.db_editor_screen and self.db_editor_screen.parent:
+            self.db_editor_screen.parent.remove_widget(self.db_editor_screen)
+        
         if not self.db_editor_screen:
             self.db_editor_screen = DatabaseEditorScreen()
             
