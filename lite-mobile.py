@@ -158,61 +158,10 @@ class TranslationService:
     
     def add_common_words(self):
         """Add common Spanish words to avoid hitting translation APIs too much"""
-        common_words = {
-            "hola": "hello",
-            "adiós": "goodbye",
-            "gracias": "thank you",
-            "por favor": "please",
-            "sí": "yes",
-            "no": "no",
-            "buenos días": "good morning",
-            "buenas tardes": "good afternoon",
-            "buenas noches": "good evening",
-            "cómo estás": "how are you",
-            "bien": "good",
-            "mal": "bad",
-            "casa": "house",
-            "perro": "dog",
-            "gato": "cat",
-            "libro": "book",
-            "de": "of",
-            "la": "the",
-            "el": "the",
-            "y": "and",
-            "a": "to",
-            "en": "in",
-            "con": "with",
-            "por": "for",
-            "para": "for",
-            "su": "his/her",
-            "mi": "my",
-            "tu": "your",
-            "líder": "leader",
-            "papa": "potato",
-            "funeral": "funeral",
-            "puentes": "bridges",
-            "construir": "build",
-            "Francia": "France",
-            "Ucrania": "Ukraine"
-        }
-        
-        count = 0
-        conn = self._get_db_connection()
-        cursor = conn.cursor()
-        
-        for spanish, english in common_words.items():
-            try:
-                cursor.execute(
-                    'INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                    (spanish.lower(), english, 'common')
-                )
-                count += 1
-            except:
-                pass
-        
-        conn.commit()
-        logger.info(f"Added {count} common words to database")
-        print(f"Added {count} common words to database")
+        # Empty method - we'll rely on translation APIs and DB to build our 
+        # translation database instead of manually adding words
+        logger.info("Manual common words population disabled - using APIs only")
+        print("Manual common words dictionary disabled - using translation APIs only")
             
     def test_dictionary(self):
         """Test the translation service with some common Spanish words"""
