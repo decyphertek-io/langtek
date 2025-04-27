@@ -27,8 +27,6 @@ Malo Words:
 ```
 EX: Papa Francis was being translated as Potato Fran
 * Removing bad translation sources in the custom db
-* The offline free sources often missing many words?
-* Will rebuild to have a clean DB, then can manually update any mistranslations. 
 
 # 1. Connect to database
 cd /langtek/db
