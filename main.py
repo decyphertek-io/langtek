@@ -263,14 +263,14 @@ class TranslationService:
                 
                 # Translate using the appropriate API
                 translation = None
-                if api_name == 'MyMemory':
-                    translation = self._translate_mymemory(word, from_lang, to_lang)
-                elif api_name == 'LibreTranslate':
+                if api_name == 'LibreTranslate':
                     translation = self._translate_libretranslate(word, from_lang, to_lang)
                 elif api_name == 'Lingva':
                     translation = self._translate_lingva(word, from_lang, to_lang)
                 elif api_name == 'DeepL':
                     translation = self._translate_deepl(word, from_lang, to_lang)
+                elif api_name == 'MyMemory':
+                    translation = self._translate_mymemory(word, from_lang, to_lang)
                 elif api_name == 'Reverso':
                     translation = self._translate_reverso(word, from_lang, to_lang)
                 
