@@ -24,6 +24,8 @@ Spanish Offline Dictinaries(Using a custom one instead):
 
 Malo Words:
 ------------------------------------------------------
+* Can update from the GUI > Top Left > Search > Update
+* Can also update from terminal
 ```
 EX: Papa Francis was being translated as Potato Fran
 * Removing bad translation sources in the custom db
