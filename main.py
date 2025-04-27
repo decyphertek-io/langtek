@@ -483,7 +483,43 @@ class TranslationService:
                     print(f"DEBUG: Found '{word}' in memory cache")
                 return self.word_dict[word_lower]
             
-            # Next check in SQLite database using thread-local connection
+            # Check in es-en.sqlite3 database
+            es_en_db_file = os.path.join(self.db_dir, 'es-en.sqlite3')
+            if os.path.exists(es_en_db_file):
+                try:
+                    conn = sqlite3.connect(es_en_db_file)
+                    cursor = conn.cursor()
+                    
+                    # Try each table from es-en.sqlite3
+                    table_queries = [
+                        ("SELECT translation FROM simple_translation WHERE word = ?", "simple_translation"),
+                        ("SELECT translation FROM translation WHERE word = ?", "translation"),
+                        ("SELECT translation FROM translation_grouped WHERE word = ?", "translation_grouped")
+                    ]
+                    
+                    for query, table_name in table_queries:
+                        try:
+                            cursor.execute(query, (word_lower,))
+                            result = cursor.fetchone()
+                            if result:
+                                if self.debug_mode:
+                                    logger.debug(f"Found '{word}' in es-en.sqlite3 database (table: {table_name})")
+                                    print(f"DEBUG: Found '{word}' in es-en.sqlite3 database (table: {table_name})")
+                                
+                                # Add to memory cache for faster future lookups
+                                self.word_dict[word_lower] = result[0]
+                                conn.close()
+                                return result[0]
+                        except sqlite3.OperationalError as e:
+                            # Log the error but continue trying other tables
+                            logger.debug(f"Error querying table {table_name}: {e}")
+                            
+                    conn.close()
+                except Exception as e:
+                    logger.error(f"Error querying es-en.sqlite3 database: {e}")
+                    # Continue to next lookup method
+            
+            # Next check in SQLite translations.db database
             conn = self._get_db_connection()
             cursor = conn.cursor()
             cursor.execute("SELECT translation FROM translations WHERE word = ?", (word_lower,))
@@ -491,14 +527,14 @@ class TranslationService:
             
             if result:
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' in database")
-                    print(f"DEBUG: Found '{word}' in database")
+                    logger.debug(f"Found '{word}' in translations.db database")
+                    print(f"DEBUG: Found '{word}' in translations.db database")
                 
                 # Add to memory cache for faster future lookups
                 self.word_dict[word_lower] = result[0]
                 return result[0]
             
-            # If not found locally, first check if we're under any API rate limit
+            # If not found locally, check if we're under any API rate limit
             current_time = time.time()
             can_translate_now = False
             
@@ -507,7 +543,7 @@ class TranslationService:
                 with api_config['lock']:
                     # Remove timestamps older than 1 minute
                     api_config['timestamps'] = [ts for ts in api_config['timestamps'] 
-                                              if current_time - ts < 60]
+                                             if current_time - ts < 60]
                     if len(api_config['timestamps']) < api_config['max_per_minute']:
                         can_translate_now = True
                         break
@@ -1760,7 +1796,7 @@ class RSSApp(App):
             else:
                 # Add new translation
                 cursor.execute(
-                    "INSERT INTO translations (word, translation, source) VALUES (?, ?, 'manual')",
+                    "INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, 'manual')",
                     (word.lower(), translation)
                 )
                 action = "Added"

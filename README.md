@@ -12,3 +12,29 @@ Spanish Offline Dictinaries:
 * https://freedict.org/downloads/
 * https://www.wikdict.com/page/download
 * https://github.com/open-dict-data/wikidict-es
+
+Update bad translations on the custom translations.db:
+------------------------------------------------------
+```
+EX: Papa Francis was being translated as Potato Fran
+
+# 1. Connect to database
+sqlite3 /langtek/db/translations.db
+
+# 2. View data
+SELECT * FROM translations WHERE word = 'papa';
+# 30|papa|potato|common|2025-04-26 22:56:57
+
+# 3. Update translation
+UPDATE translations 
+SET translation = 'father' 
+WHERE word = 'papa';
+
+# 4. Verify change
+SELECT * FROM translations WHERE word = 'papa';
+# 30|papa|father|common|2025-04-26 22:56:57
+
+# 5. Exit SQLite
+.exit
+
+```
