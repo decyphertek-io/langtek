@@ -2,5 +2,9 @@
   {
     "url": "https://www.eldiario.es/rss",
     "title": "ElDiario.es - ElDiario.es"
+  },
+  {
+    "url": "https://www.xataka.com/feedburner.xml",
+    "title": "Xataka"
   }
 ]

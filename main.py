@@ -84,12 +84,6 @@ class TranslationService:
                 'max_per_minute': 5,
                 'timestamps': [],
                 'lock': threading.Lock()
-            },
-            {
-                'name': 'MyMemory',
-                'max_per_minute': 10,
-                'timestamps': [],
-                'lock': threading.Lock()
             }
         ]
         
@@ -271,8 +265,6 @@ class TranslationService:
                     translation = self._translate_apertium(word, from_lang, to_lang)
                 elif api_name == 'DeepL':
                     translation = self._translate_deepl(word, from_lang, to_lang)
-                elif api_name == 'MyMemory':
-                    translation = self._translate_mymemory(word, from_lang, to_lang)
                 
                 if translation:
                     logger.debug(f"Successfully translated '{word}' using {api_name}")
@@ -288,30 +280,6 @@ class TranslationService:
         
         # If all APIs fail, return None
         logger.error(f"All translation APIs failed for '{word}'")
-        return None
-    
-    def _translate_mymemory(self, word, from_lang='es', to_lang='en'):
-        """Translate using MyMemory API"""
-        url = f"https://api.mymemory.translated.net/get?q={word}&langpair={from_lang}|{to_lang}"
-        
-        response = requests.get(url, timeout=5)
-        data = response.json()
-        
-        if 'responseData' in data and 'translatedText' in data['responseData']:
-            translation = data['responseData']['translatedText']
-            # Unescape HTML entities and clean up the translation
-            translation = html.unescape(translation).strip()
-            
-            # Check if matches original word
-            if translation.lower() == word.lower():
-                # Try an alternative translation if available
-                if 'matches' in data and len(data['matches']) > 0:
-                    for match in data['matches']:
-                        if 'translation' in match and match['translation'].lower() != word.lower():
-                            translation = match['translation']
-                            break
-            
-            return translation
         return None
     
     def _translate_libretranslate(self, word, from_lang='es', to_lang='en'):
@@ -768,8 +736,8 @@ KV = '''
                         font_size: '24sp'
                         size_hint_x: None
                         width: dp(56)
-                        background_color: 0.1, 0.1, 0.1, 1
-                        background_normal: ''
+                        background_color: 0.2, 0.5, 0.8, 1
+                        color: 1, 1, 1, 1
                         on_release: app.show_menu()
         ScrollView:
                 id: main_scroll
@@ -950,7 +918,7 @@ KV = '''
                 spacing: dp(8)
                 canvas.before:
                         Color:
-                                rgba: 0.15, 0.15, 0.15, 1
+                                rgba: 0.25, 0.25, 0.25, 1
                         RoundedRectangle:
                                 pos: self.pos
                                 size: self.size
@@ -958,8 +926,8 @@ KV = '''
 <AddFeedDialog>:
         title: 'Add RSS Feed'
         size_hint: 0.9, 0.3
-        background_color: 0.15, 0.15, 0.15, 1
-        title_color: 0.9, 0.9, 0.9, 1
+        background_color: 0.25, 0.25, 0.25, 1
+        title_color: 1, 1, 1, 1
         BoxLayout:
                 orientation: 'vertical'
                 padding: dp(20)
@@ -972,6 +940,8 @@ KV = '''
                         height: dp(50)
                         padding: dp(12)
                         font_size: '16sp'
+                        foreground_color: 0, 0, 0, 1
+                        background_color: 0.9, 0.9, 0.9, 1
                 BoxLayout:
                         orientation: 'horizontal'
                         size_hint_y: None
@@ -979,11 +949,13 @@ KV = '''
                         spacing: dp(16)
                         Button:
                                 text: 'Cancel'
-                                background_color: 0.5, 0.5, 0.5, 1
+                                background_color: 0.7, 0.7, 0.7, 1
+                                color: 0, 0, 0, 1
                                 on_release: root.dismiss()
                         Button:
                                 text: 'Add'
                                 background_color: 0.2, 0.5, 0.8, 1
+                                color: 1, 1, 1, 1
                                 on_release: root.add_feed()
 
 <DatabaseEditorScreen>:
