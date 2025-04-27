@@ -7,6 +7,5 @@ PyICU
 requests
 beautifulsoup4
 html-sanitizer
-libretranslate==1.6.5
-torch==2.2.0
+
 
