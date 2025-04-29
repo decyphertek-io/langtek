@@ -302,7 +302,7 @@ class TranslationService:
                     response = requests.get(url, timeout=5)
                     
                     if response.status_code == 200:
-                        data = response.json()
+                    data = response.json()
                         if 'translation' in data:
                             return data['translation']
                 else:
