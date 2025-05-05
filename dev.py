@@ -302,7 +302,7 @@ class TranslationService:
                     response = requests.get(url, timeout=5)
                     
                     if response.status_code == 200:
-                    data = response.json()
+                        data = response.json()
                         if 'translation' in data:
                             return data['translation']
                 else:
@@ -1205,6 +1205,37 @@ class TranslationButton(Button):
         if hasattr(app, 'select_translation'):
             app.select_translation(self.word)
 
+class TranslatorPanel(BoxLayout):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.size_hint_x = 0.3
+        self.translation_service = TranslationService()
+        
+        # Add panel title
+        title_label = Label(text='Translator', size_hint_y=0.1, 
+                           bold=True, font_size='18sp')
+        self.add_widget(title_label)
+        
+        self.source_text = TextInput(hint_text='Enter Spanish text',
+                                    size_hint_y=0.4, multiline=True)
+        self.add_widget(self.source_text)
+        
+        self.translate_btn = Button(text='Translate', size_hint_y=0.1)
+        self.translate_btn.bind(on_release=self.on_translate)
+        self.add_widget(self.translate_btn)
+        
+        self.result_text = TextInput(hint_text='English translation',
+                                    readonly=True, size_hint_y=0.5)
+        self.add_widget(self.result_text)
+
+    def on_translate(self, instance):
+        text = self.source_text.text
+        if not text:
+            return
+        translated = App.get_running_app().translator.translate_text(text)
+        self.result_text.text = translated
+
 class RSSApp(App):
     def __init__(self, **kwargs):
         super(RSSApp, self).__init__(**kwargs)
@@ -1220,7 +1251,19 @@ class RSSApp(App):
 
     def build(self):
         Builder.load_string(KV)
-        self.root = RSSLayout()
+        
+        # Create main layout with horizontal orientation
+        main_layout = BoxLayout(orientation='horizontal')
+        
+        # Create the RSS layout and keep reference to it
+        self.rss_layout = RSSLayout()
+        main_layout.add_widget(self.rss_layout)
+        
+        # Add translator panel to the right
+        translator_panel = TranslatorPanel()
+        main_layout.add_widget(translator_panel)
+        
+        # Set up other app initialization
         self.feeds = []
         self.current_articles = []
         
@@ -1229,7 +1272,8 @@ class RSSApp(App):
         
         self.load_feeds()
         Clock.schedule_once(self.load_all_feeds, 0.5)
-        return self.root
+        
+        return main_layout
     
     def load_feeds(self):
         feed_file = 'feeds.json'
@@ -1255,7 +1299,7 @@ class RSSApp(App):
             print(f"Error saving feeds: {e}")
     
     def load_all_feeds(self, dt):
-        self.root.ids.feed_grid.clear_widgets()
+        self.rss_layout.ids.feed_grid.clear_widgets()
         
         if not self.feeds:
             placeholder = Label(
@@ -1264,7 +1308,7 @@ class RSSApp(App):
                 size_hint_y=None,
                 height=dp(100)
             )
-            self.root.ids.feed_grid.add_widget(placeholder)
+            self.rss_layout.ids.feed_grid.add_widget(placeholder)
             return
         
         for feed_data in self.feeds:
@@ -1288,7 +1332,7 @@ class RSSApp(App):
     
     def add_article_card(self, article, title, title_translation, image_url, feed_title, feed_url):
         # Check if card already exists
-        for child in self.root.ids.feed_grid.children[:]:
+        for child in self.rss_layout.ids.feed_grid.children[:]:
             if (isinstance(child, ArticleCard) and 
                 child.article_link == article.get('link', '#')):
                 # Update existing card instead of creating a duplicate
@@ -1311,7 +1355,7 @@ class RSSApp(App):
             article=article
         )
         card.bind(on_touch_down=self.on_card_touched)
-        self.root.ids.feed_grid.add_widget(card)
+        self.rss_layout.ids.feed_grid.add_widget(card)
     
     def on_card_touched(self, card, touch):
         if card.collide_point(*touch.pos):
@@ -1358,7 +1402,7 @@ class RSSApp(App):
         
         # Create new ArticleScreen if needed
         self.article_screen = ArticleScreen() if not self.article_screen else self.article_screen
-        self.root.add_widget(self.article_screen)
+        self.rss_layout.add_widget(self.article_screen)
         
         self.article_screen.article_title = clean_title
         self.article_screen.article_content = clean_content
@@ -1505,7 +1549,7 @@ class RSSApp(App):
     
     def close_article(self):
         if self.article_screen:
-            self.root.remove_widget(self.article_screen)
+            self.rss_layout.remove_widget(self.article_screen)
             self.article_screen = None
             self.current_article = None
     
@@ -1667,11 +1711,11 @@ class RSSApp(App):
     
     def _update_feed_widgets(self):
         """Update existing feed widgets with new translations without creating duplicates"""
-        if not hasattr(self.root.ids, 'feed_grid'):
+        if not hasattr(self.rss_layout.ids, 'feed_grid'):
             return
             
         # Loop through existing article cards and update translations
-        for child in self.root.ids.feed_grid.children[:]:
+        for child in self.rss_layout.ids.feed_grid.children[:]:
             if isinstance(child, ArticleCard):
                 title = child.article_title.split('\n')[0] if '\n' in child.article_title else child.article_title
                 # Strip any Kivy markup
@@ -1695,7 +1739,7 @@ class RSSApp(App):
             self.db_editor_screen = DatabaseEditorScreen()
             
         # Add to root
-        self.root.add_widget(self.db_editor_screen)
+        self.rss_layout.add_widget(self.db_editor_screen)
         
         # Load translations
         self.load_translations()
@@ -1703,7 +1747,7 @@ class RSSApp(App):
     def close_db_editor(self):
         """Close the database editor screen"""
         if self.db_editor_screen:
-            self.root.remove_widget(self.db_editor_screen)
+            self.rss_layout.remove_widget(self.db_editor_screen)
     
     def load_translations(self, search_term=None):
         """Load translations from the database into the editor"""
