@@ -929,9 +929,9 @@ KV = '''
                                 text_size: self.width, None
                                 font_size: '16sp'
                                 line_height: 1.5
-                                markup: True
                                 selection_color: 0.2, 0.6, 0.8, 0.5
                                 cursor_color: 0, 0, 0, 0
+                                markup: True
                         Button:
                                 text: 'Read Full Article'
                                 size_hint_y: None
@@ -1218,18 +1218,22 @@ class TranslatorPanel(BoxLayout):
         self.orientation = 'vertical'
         self.size_hint_x = 0.3
         
+        # Panel title
         title_label = Label(text='Translator', size_hint_y=0.1, 
                           bold=True, font_size='18sp')
         self.add_widget(title_label)
         
+        # Source text input (for pasting Spanish)
         self.source_text = TextInput(hint_text='Paste Spanish text here',
                                    size_hint_y=0.4, multiline=True)
         self.add_widget(self.source_text)
         
+        # Translate button
         self.translate_btn = Button(text='Translate', size_hint_y=0.1)
         self.translate_btn.bind(on_release=self.on_translate)
         self.add_widget(self.translate_btn)
         
+        # Result text (English translation)
         self.result_text = TextInput(hint_text='Translation will appear here',
                                    readonly=True, size_hint_y=0.5)
         self.add_widget(self.result_text)
@@ -1245,7 +1249,7 @@ class TranslatorPanel(BoxLayout):
             if isinstance(translation, dict) and 'text' in translation:
                 self.result_text.text = translation['text']
             else:
-                self.result_text.text = translation or "Translation failed"
+                self.result_text.text = str(translation) or "Translation failed"
         except Exception as e:
             self.result_text.text = f"Error: {str(e)}"
 
@@ -1431,7 +1435,9 @@ class RSSApp(App):
         # Start pre-translating in the background
         threading.Thread(target=self._background_translate, args=(clean_content,), daemon=True).start()
         
-        # Add binding after article content is set
+        # Schedule selection checking
+        Clock.schedule_interval(self.check_selection, 0.5)
+    
     def _fetch_full_article_content(self, url):
         """Fetch full article content from a URL"""
         try:
@@ -1550,11 +1556,12 @@ class RSSApp(App):
         line = lines[current_line]
         translation = self.translator.word_for_word_line(line)
         
-        # Update the translation line
+        # Update the translation line without markup - just use plain text
         translation_line_index = current_line * 2 + 1
         if translation_line_index < len(displayed_lines):
-            displayed_lines[translation_line_index] = f'[i][color=#777777]{translation}[/color][/i]'
-            
+            # Use plain text formatting instead of markup
+            displayed_lines[translation_line_index] = f"- {translation}"
+        
         # Update display
         self.article_screen.article_content = '\n'.join(displayed_lines)
         
@@ -1950,6 +1957,48 @@ class RSSApp(App):
             logger.error(f"Error deleting translation: {e}")
             if self.db_editor_screen:
                 self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+
+    def check_selection(self, dt):
+        """Check for text selection and show a translate button if needed"""
+        if not self.article_screen or not hasattr(self.article_screen.ids, 'article_content'):
+            return
+        
+        text_input = self.article_screen.ids.article_content
+        if text_input.selection_text:
+            if not hasattr(self, 'selection_button') or not self.selection_button.parent:
+                # Create a button near the selection
+                self.selection_button = Button(
+                    text="Translate Selection",
+                    size_hint=(None, None),
+                    size=(dp(150), dp(40)),
+                    pos=(text_input.cursor_pos[0] + dp(20), text_input.cursor_pos[1] - dp(40)),
+                    background_color=(0.2, 0.5, 0.8, 0.9)
+                )
+                self.selection_button.bind(on_release=self.translate_selected_text)
+                self.rss_layout.add_widget(self.selection_button)
+        elif hasattr(self, 'selection_button') and self.selection_button.parent:
+            self.rss_layout.remove_widget(self.selection_button)
+
+    def translate_selected_text(self, instance):
+        """Translate selected text and send to translator panel"""
+        if not self.article_screen or not hasattr(self.article_screen.ids, 'article_content'):
+            return
+        
+        text_input = self.article_screen.ids.article_content
+        selected_text = text_input.selection_text
+        
+        if selected_text and hasattr(self.rss_layout.parent, 'children'):
+            # Find the translator panel
+            for child in self.rss_layout.parent.children:
+                if isinstance(child, TranslatorPanel):
+                    # Set the text and trigger translation
+                    child.source_text.text = selected_text
+                    child.on_translate(None)
+                    break
+        
+        # Remove the selection button
+        if hasattr(self, 'selection_button') and self.selection_button.parent:
+            self.rss_layout.remove_widget(self.selection_button)
 
 if __name__ == '__main__':
     RSSApp().run()
