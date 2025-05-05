@@ -915,12 +915,16 @@ KV = '''
                                 text_size: self.width, None
                                 halign: 'left'
                                 markup: True
-                        Label:
+                        TextInput:
                                 id: article_content
                                 text: root.article_content
                                 color: 0, 0, 0, 1
                                 size_hint_y: None
-                                height: self.texture_size[1] + dp(100)
+                                height: max(self.minimum_height, dp(400))
+                                readonly: True
+                                background_normal: ''
+                                background_active: ''
+                                background_color: 0.95, 0.95, 0.95, 0
                                 text_size: self.width, None
                                 font_size: '16sp'
                                 line_height: 1.5
@@ -1210,31 +1214,37 @@ class TranslatorPanel(BoxLayout):
         super().__init__(**kwargs)
         self.orientation = 'vertical'
         self.size_hint_x = 0.3
-        self.translation_service = TranslationService()
         
-        # Add panel title
         title_label = Label(text='Translator', size_hint_y=0.1, 
-                           bold=True, font_size='18sp')
+                          bold=True, font_size='18sp')
         self.add_widget(title_label)
         
-        self.source_text = TextInput(hint_text='Enter Spanish text',
-                                    size_hint_y=0.4, multiline=True)
+        self.source_text = TextInput(hint_text='Paste Spanish text here',
+                                   size_hint_y=0.4, multiline=True)
         self.add_widget(self.source_text)
         
         self.translate_btn = Button(text='Translate', size_hint_y=0.1)
         self.translate_btn.bind(on_release=self.on_translate)
         self.add_widget(self.translate_btn)
         
-        self.result_text = TextInput(hint_text='English translation',
-                                    readonly=True, size_hint_y=0.5)
+        self.result_text = TextInput(hint_text='Translation will appear here',
+                                   readonly=True, size_hint_y=0.5)
         self.add_widget(self.result_text)
 
     def on_translate(self, instance):
         text = self.source_text.text
         if not text:
             return
-        translated = App.get_running_app().translator.translate_text(text)
-        self.result_text.text = translated
+        
+        try:
+            app = App.get_running_app()
+            translation = app.translator._perform_online_translation(text, 'es', 'en')
+            if isinstance(translation, dict) and 'text' in translation:
+                self.result_text.text = translation['text']
+            else:
+                self.result_text.text = translation or "Translation failed"
+        except Exception as e:
+            self.result_text.text = f"Error: {str(e)}"
 
 class RSSApp(App):
     def __init__(self, **kwargs):
