@@ -915,16 +915,21 @@ KV = '''
                                 text_size: self.width, None
                                 halign: 'left'
                                 markup: True
-                        Label:
+                        TextInput:
                                 id: article_content
                                 text: root.article_content
                                 color: 0, 0, 0, 1
                                 size_hint_y: None
-                                height: self.texture_size[1] + dp(100)
+                                height: max(self.minimum_height, dp(400))
+                                readonly: True
+                                background_normal: ''
+                                background_active: ''
+                                background_color: 0.95, 0.95, 0.95, 0
                                 text_size: self.width, None
                                 font_size: '16sp'
                                 line_height: 1.5
                                 markup: True
+                                on_selection: app.update_selection(args[0])
                         Button:
                                 text: 'Read Full Article'
                                 size_hint_y: None
@@ -1221,9 +1226,17 @@ class TranslatorPanel(BoxLayout):
                                     size_hint_y=0.4, multiline=True)
         self.add_widget(self.source_text)
         
-        self.translate_btn = Button(text='Translate', size_hint_y=0.1)
+        self.button_layout = BoxLayout(size_hint_y=0.1, spacing=5)
+        
+        self.translate_btn = Button(text='Translate')
         self.translate_btn.bind(on_release=self.on_translate)
-        self.add_widget(self.translate_btn)
+        self.button_layout.add_widget(self.translate_btn)
+        
+        self.paste_btn = Button(text='Paste Selection')
+        self.paste_btn.bind(on_release=self.on_paste_selection)
+        self.button_layout.add_widget(self.paste_btn)
+        
+        self.add_widget(self.button_layout)
         
         self.result_text = TextInput(hint_text='English translation',
                                     readonly=True, size_hint_y=0.5)
@@ -1233,8 +1246,26 @@ class TranslatorPanel(BoxLayout):
         text = self.source_text.text
         if not text:
             return
-        translated = App.get_running_app().translator.translate_text(text)
-        self.result_text.text = translated
+        
+        # Use API translation directly instead of word-for-word
+        try:
+            # Get a direct translation from API
+            app = App.get_running_app()
+            translation = app.translator._perform_online_translation(text, 'es', 'en')
+            if isinstance(translation, dict) and 'text' in translation:
+                self.result_text.text = translation['text']
+            else:
+                self.result_text.text = translation or "Translation failed"
+        except Exception as e:
+            self.result_text.text = f"Error: {str(e)}"
+    
+    def on_paste_selection(self, instance):
+        # Get the app's current selection if available
+        app = App.get_running_app()
+        if hasattr(app, 'selected_text') and app.selected_text:
+            self.source_text.text = app.selected_text
+            # Auto-translate
+            self.on_translate(None)
 
 class RSSApp(App):
     def __init__(self, **kwargs):
@@ -1936,6 +1967,12 @@ class RSSApp(App):
             logger.error(f"Error deleting translation: {e}")
             if self.db_editor_screen:
                 self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+
+    def update_selection(self, text_input):
+        """Store the currently selected text from any TextInput"""
+        self.selected_text = text_input.selection_text
+        if self.selected_text:
+            print(f"Selected text: {self.selected_text[:30]}...")
 
 if __name__ == '__main__':
     RSSApp().run()
