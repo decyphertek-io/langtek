@@ -929,7 +929,7 @@ KV = '''
                                 font_size: '16sp'
                                 line_height: 1.5
                                 markup: True
-                                on_selection: app.update_selection(args[0])
+                                on_selection: app.update_selection(self)
                         Button:
                                 text: 'Read Full Article'
                                 size_hint_y: None
