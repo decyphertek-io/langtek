@@ -36,6 +36,7 @@ from kivy.metrics import dp
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
 from pyglossary.glossary_v2 import Glossary
 from datetime import datetime
+from kivy.core.clipboard import Clipboard
 
 # Setup logging to file
 logging.basicConfig(
@@ -929,6 +930,8 @@ KV = '''
                                 font_size: '16sp'
                                 line_height: 1.5
                                 markup: True
+                                selection_color: 0.2, 0.6, 0.8, 0.5
+                                cursor_color: 0, 0, 0, 0
                         Button:
                                 text: 'Read Full Article'
                                 size_hint_y: None
@@ -1427,7 +1430,8 @@ class RSSApp(App):
         
         # Start pre-translating in the background
         threading.Thread(target=self._background_translate, args=(clean_content,), daemon=True).start()
-
+        
+        # Add binding after article content is set
     def _fetch_full_article_content(self, url):
         """Fetch full article content from a URL"""
         try:
