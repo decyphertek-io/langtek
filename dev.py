@@ -1503,7 +1503,7 @@ class RSSApp(App):
             title = self.current_article.get('title', '')
             if title:
                 english_title = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n[i][color=#777777]{english_title}[/color][/i]"
+                stacked_title = f"{title}\n- {english_title}"  # Plain formatting
                 self.article_screen.article_title = stacked_title
                 # Also update the header if it exists
                 if hasattr(self.article_screen.ids, 'article_header'):
@@ -1520,7 +1520,7 @@ class RSSApp(App):
                     displayed_lines.append('')
                     continue
                 displayed_lines.append(line)
-                displayed_lines.append('[i][color=#777777]Translating...[/color][/i]')
+                displayed_lines.append('- Translating...')  # Plain formatting
             
             self.article_screen.article_content = '\n'.join(displayed_lines)
             
@@ -1710,7 +1710,7 @@ class RSSApp(App):
             # Regenerate the translations
             if title:
                 english_title = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n[i][color=#777777]{english_title}[/color][/i]"
+                stacked_title = f"{title}\n- {english_title}"  # Plain formatting
                 self.article_screen.article_title = stacked_title
             
             if content:
@@ -1722,7 +1722,7 @@ class RSSApp(App):
                         translated_lines.append('')
                         continue
                     translated_lines.append(line)
-                    translated_lines.append(f"[i][color=#777777]{self.translator.word_for_word_line(line)}[/color][/i]")
+                    translated_lines.append(f"- {self.translator.word_for_word_line(line)}")  # Plain formatting
                 stacked_content = '\n'.join(translated_lines)
                 self.article_screen.article_content = stacked_content
         
@@ -1744,7 +1744,7 @@ class RSSApp(App):
                 
                 # Get updated translation
                 english_line = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
+                stacked_title = f"{title}\n- {english_line}"  # Plain formatting
                 child.article_title = stacked_title
 
     def show_db_editor(self, menu=None):
