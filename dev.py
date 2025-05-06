@@ -770,7 +770,7 @@ KV = '''
                         height: self.minimum_height
 <ArticleCard>:
         size_hint_y: None
-        height: dp(150)
+        height: dp(180)
         orientation: 'horizontal'
         spacing: dp(10)
         padding: dp(10)
@@ -786,17 +786,17 @@ KV = '''
                 source: root.thumbnail_url if root.thumbnail_url else 'data/default_thumbnail.png'
                 allow_stretch: True
                 keep_ratio: True
-                size_hint_x: 0.3
+                size_hint_x: 0.4
         BoxLayout:
                 orientation: 'vertical'
-                size_hint_x: 0.7
+                size_hint_x: 0.6
                 padding: dp(5)
                 spacing: dp(5)
                 Label:
                         id: article_title
                         text: root.article_title
                         color: 0.9, 0.9, 0.9, 1
-                        font_size: '16sp'
+                        font_size: '18sp'
                         text_size: self.width, None
                         size_hint_y: None
                         height: self.texture_size[1]
@@ -809,7 +809,7 @@ KV = '''
                         id: article_title_translation
                         text: root.article_title_translation
                         color: 0.7, 0.7, 0.7, 1
-                        font_size: '14sp'
+                        font_size: '16sp'
                         text_size: self.width, None
                         size_hint_y: None
                         height: self.texture_size[1]
@@ -821,7 +821,7 @@ KV = '''
                         id: feed_title
                         text: root.feed_title
                         color: 0.5, 0.5, 0.5, 1
-                        font_size: '12sp'
+                        font_size: '14sp'
                         text_size: self.width, None
                         size_hint_y: None
                         height: self.texture_size[1]
@@ -902,7 +902,7 @@ KV = '''
                                 id: article_image
                                 source: root.image_url if root.image_url else ''
                                 size_hint_y: None
-                                height: dp(200) if root.image_url else 0
+                                height: dp(250) if root.image_url else 0
                                 allow_stretch: True
                                 keep_ratio: True
                                 opacity: 1
@@ -929,8 +929,6 @@ KV = '''
                                 text_size: self.width, None
                                 font_size: '16sp'
                                 line_height: 1.5
-                                selection_color: 0.2, 0.6, 0.8, 0.5
-                                cursor_color: 0, 0, 0, 0
                                 markup: True
                         Button:
                                 text: 'Read Full Article'
@@ -1503,7 +1501,8 @@ class RSSApp(App):
             title = self.current_article.get('title', '')
             if title:
                 english_title = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n- {english_title}"  # Plain formatting
+                # Use plaintext with indentation
+                stacked_title = f"{title}\n    {english_title}"
                 self.article_screen.article_title = stacked_title
                 # Also update the header if it exists
                 if hasattr(self.article_screen.ids, 'article_header'):
@@ -1520,7 +1519,8 @@ class RSSApp(App):
                     displayed_lines.append('')
                     continue
                 displayed_lines.append(line)
-                displayed_lines.append('- Translating...')  # Plain formatting
+                # Use indentation for translation placeholders
+                displayed_lines.append('    Translating...')
             
             self.article_screen.article_content = '\n'.join(displayed_lines)
             
@@ -1556,11 +1556,11 @@ class RSSApp(App):
         line = lines[current_line]
         translation = self.translator.word_for_word_line(line)
         
-        # Update the translation line without markup - just use plain text
+        # Update the translation line with indentation for visual distinction
         translation_line_index = current_line * 2 + 1
         if translation_line_index < len(displayed_lines):
-            # Use plain text formatting instead of markup
-            displayed_lines[translation_line_index] = f"- {translation}"
+            # Use more indentation and no markup
+            displayed_lines[translation_line_index] = f"    {translation}"
         
         # Update display
         self.article_screen.article_content = '\n'.join(displayed_lines)
@@ -1710,7 +1710,7 @@ class RSSApp(App):
             # Regenerate the translations
             if title:
                 english_title = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n- {english_title}"  # Plain formatting
+                stacked_title = f"{title}\n[i][color=#777777]{english_title}[/color][/i]"
                 self.article_screen.article_title = stacked_title
             
             if content:
@@ -1722,7 +1722,7 @@ class RSSApp(App):
                         translated_lines.append('')
                         continue
                     translated_lines.append(line)
-                    translated_lines.append(f"- {self.translator.word_for_word_line(line)}")  # Plain formatting
+                    translated_lines.append(f"[i][color=#777777]{self.translator.word_for_word_line(line)}[/color][/i]")
                 stacked_content = '\n'.join(translated_lines)
                 self.article_screen.article_content = stacked_content
         
@@ -1744,7 +1744,7 @@ class RSSApp(App):
                 
                 # Get updated translation
                 english_line = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n- {english_line}"  # Plain formatting
+                stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
                 child.article_title = stacked_title
 
     def show_db_editor(self, menu=None):
