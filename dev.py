@@ -21,7 +21,7 @@ from kivy.uix.textinput import TextInput
 from kivy.core.clipboard import Clipboard
 
 class CodeDisplay(TextInput):
-    """Read-only code/text display; supports selection and copying."""
+    """Read-only code/text display; supports selection and copying, and right-click contextual translation."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.readonly = True
@@ -30,12 +30,148 @@ class CodeDisplay(TextInput):
         self.do_wrap = False
         self.use_bubble = True
         self.use_handles = True
+        self.menu = None
+        Window.bind(on_mouse_down=self.right_click_menu)
 
     def on_touch_up(self, touch):
         res = super().on_touch_up(touch)
         if self.selection_text:
             Clipboard.copy(self.selection_text)
         return res
+        
+    def right_click_menu(self, window, x, y, button, modifiers):
+        if button == 'right' and self.collide_point(*self.to_widget(x, y)):
+            # Only show menu if some text is selected
+            if self.selection_text and self.selection_text.strip():
+                self.show_context_menu(x, y)
+            return True  # swallow event
+        return False
+
+    def show_context_menu(self, x, y):
+        if self.menu:
+            self.menu.dismiss()
+        
+        # Create dropdown menu
+        dropdown = DropDown()
+
+        btn_translate = Button(
+            text="Translate selection", 
+            size_hint_y=None, 
+            height=dp(44),
+            background_color=(0.2, 0.5, 0.8, 1)
+        )
+        btn_translate.bind(on_release=lambda btn: self.translate_selected_text())
+        dropdown.add_widget(btn_translate)
+
+        btn_copy = Button(
+            text="Copy selection", 
+            size_hint_y=None, 
+            height=dp(44),
+            background_color=(0.3, 0.3, 0.3, 1)
+        )
+        btn_copy.bind(on_release=lambda btn: self.copy_selection())
+        dropdown.add_widget(btn_copy)
+
+        # Position the menu at cursor
+        self.menu = ModalView(
+            size_hint=(None, None), 
+            size=(dp(180), dp(88)), 
+            auto_dismiss=True,
+            background_color=(0.2, 0.2, 0.2, 0.9)
+        )
+        self.menu.add_widget(dropdown)
+        self.menu.open()
+        # Position menu where right-click happened
+        self.menu.pos = (x, y - dp(88))  # Position above cursor
+
+    def copy_selection(self):
+        if self.selection_text:
+            Clipboard.copy(self.selection_text)
+        if self.menu:
+            self.menu.dismiss()
+
+    def translate_selected_text(self):
+        selection = self.selection_text
+        if selection:
+            app = App.get_running_app()
+            
+            # Create a loading popup
+            loading_popup = Popup(
+                title='Translating...',
+                content=Label(text='Please wait while translating...'),
+                size_hint=(None, None), 
+                size=(dp(300), dp(150)),
+                auto_dismiss=False
+            )
+            loading_popup.open()
+            
+            # Callback for when translation is complete
+            def on_translation_done(word, translation):
+                loading_popup.dismiss()
+                
+                # Get the translation text
+                if isinstance(translation, dict) and "text" in translation:
+                    trans_text = translation["text"]
+                    source = f"\n\nSource: {translation.get('api', 'API')}"
+                else:
+                    trans_text = str(translation)
+                    source = ""
+                
+                # Create content for the popup
+                content = BoxLayout(orientation='vertical', padding=dp(10))
+                
+                # Add scrollable text display for translation
+                scroll = ScrollView()
+                translation_display = CodeDisplay(
+                    text=trans_text + source,
+                    readonly=True,
+                    background_color=(0.95, 0.95, 0.95, 1),
+                    foreground_color=(0, 0, 0, 1),
+                    size_hint=(1, None),
+                    height=dp(200)
+                )
+                translation_display.bind(minimum_height=translation_display.setter('height'))
+                scroll.add_widget(translation_display)
+                content.add_widget(scroll)
+                
+                # Add close button
+                close_btn = Button(
+                    text="Close", 
+                    size_hint=(1, None), 
+                    height=dp(50),
+                    background_color=(0.2, 0.5, 0.8, 1)
+                )
+                content.add_widget(close_btn)
+                
+                # Create and show the popup
+                result_popup = Popup(
+                    title='Translation Result',
+                    content=content,
+                    size_hint=(None, None), 
+                    size=(dp(400), dp(300)),
+                    auto_dismiss=True
+                )
+                close_btn.bind(on_release=result_popup.dismiss)
+                result_popup.open()
+            
+            # Use the app's translation service
+            if hasattr(app, 'translator'):
+                app.translator.queue_translation(
+                    selection.strip(), 
+                    callback=on_translation_done
+                )
+            else:
+                loading_popup.dismiss()
+                error_popup = Popup(
+                    title='Error',
+                    content=Label(text="Translation service not available."),
+                    size_hint=(None, None), 
+                    size=(dp(300), dp(150))
+                )
+                error_popup.open()
+                
+        if self.menu:
+            self.menu.dismiss()
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -50,6 +186,7 @@ from kivy.properties import StringProperty, ListProperty, ObjectProperty, Boolea
 from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.utils import platform
+from kivy.uix.dropdown import DropDown
 from functools import partial
 from kivy.metrics import dp
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
