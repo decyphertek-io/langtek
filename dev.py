@@ -31,79 +31,97 @@ class CodeDisplay(TextInput):
         # Disable bubbles and handles to prevent red dots on right click
         self.use_bubble = False
         self.use_handles = False
+        self.is_right_click = False
+        Window.unbind(on_mouse_down=self.right_click_sentence_to_translator)  # Unbind if previously bound
         Window.bind(on_mouse_down=self.right_click_sentence_to_translator)
 
     def on_touch_up(self, touch):
+        # For right clicks, don't call the parent method at all
+        if self.is_right_click and touch.button == 'right' and self.collide_point(*touch.pos):
+            self.is_right_click = False
+            return True
+        
+        # For left clicks, use default behavior
         res = super().on_touch_up(touch)
         if self.selection_text:
             Clipboard.copy(self.selection_text)
         return res
         
+    def on_touch_down(self, touch):
+        # Completely intercept right-clicks
+        if touch.button == 'right' and self.collide_point(*touch.pos):
+            self.is_right_click = True
+            return True
+        # For left clicks, use default behavior
+        return super().on_touch_down(touch)
+        
+    def on_touch_move(self, touch):
+        # Block touch move for right clicks too
+        if self.is_right_click and touch.button == 'right' and self.collide_point(*touch.pos):
+            return True
+        return super().on_touch_move(touch)
+        
     def right_click_sentence_to_translator(self, window, x, y, button, modifiers):
-        if button == 'right' and self.collide_point(*self.to_widget(x, y)):
-            # Set focus to prevent other widgets from getting focus
-            self.focus = True
+        # Only handle actual right clicks
+        if button != 'right':
+            return False
             
-            # Find index in text under mouse pointer
-            local = self.to_widget(x, y)
-            local_x, local_y = local
-            cursor_col, cursor_row = self.get_cursor_from_xy(local_x, local_y)
-            idx = self.get_index_from_cursors(cursor_row, cursor_col)
+        # Only handle clicks in our widget
+        if not self.collide_point(*self.to_widget(x, y)):
+            return False
+            
+        # Find index in text under mouse pointer
+        local = self.to_widget(x, y)
+        local_x, local_y = local
+        cursor_col, cursor_row = self.get_cursor_from_xy(local_x, local_y)
+        idx = self.get_index_from_cursors(cursor_row, cursor_col)
 
-            # Get full text
-            text = self.text
-            # Simple (approximate) sentence boundary search
-            prev_p = text.rfind('.', 0, idx)
-            prev_q = text.rfind('?', 0, idx)
-            prev_e = text.rfind('!', 0, idx)
-            prev_stop = max(prev_p, prev_q, prev_e)
-            start = prev_stop + 1 if prev_stop != -1 else 0
+        # Get full text
+        text = self.text
+        # Simple (approximate) sentence boundary search
+        prev_p = text.rfind('.', 0, idx)
+        prev_q = text.rfind('?', 0, idx)
+        prev_e = text.rfind('!', 0, idx)
+        prev_stop = max(prev_p, prev_q, prev_e)
+        start = prev_stop + 1 if prev_stop != -1 else 0
 
-            next_p = text.find('.', idx)
-            next_q = text.find('?', idx)
-            next_e = text.find('!', idx)
-            stops = [p for p in [next_p, next_q, next_e] if p != -1]
-            end = min(stops) + 1 if stops else len(text)
+        next_p = text.find('.', idx)
+        next_q = text.find('?', idx)
+        next_e = text.find('!', idx)
+        stops = [p for p in [next_p, next_q, next_e] if p != -1]
+        end = min(stops) + 1 if stops else len(text)
 
-            # Get and clean the sentence
-            sentence = text[start:end].strip()
-            if not sentence:
-                return True  # nothing to add
+        # Get and clean the sentence
+        sentence = text[start:end].strip()
+        if not sentence:
+            return True  # nothing to add
 
-            app = App.get_running_app()
-            def after_translation(word, translation):
-                # Show in translator panel
-                result = translation["text"] if isinstance(translation, dict) and "text" in translation else str(translation)
-                # Find the translator panel
-                if hasattr(app.rss_layout.parent, 'children'):
-                    for child in app.rss_layout.parent.children:
-                        if isinstance(child, TranslatorPanel):
-                            child.source_text.text = sentence
-                            child.result_text.text = result
-                            break
-                
-            if hasattr(app, 'translator'):
-                app.translator.queue_translation(sentence, callback=after_translation)
-                
-            # Copy the sentence to clipboard as well
-            Clipboard.copy(sentence)
-                
-            return True  # swallow event, CRITICAL to prevent article page opening
-        return False
+        # Copy the sentence to clipboard
+        Clipboard.copy(sentence)
+            
+        app = App.get_running_app()
+        def after_translation(word, translation):
+            # Show in translator panel
+            result = translation["text"] if isinstance(translation, dict) and "text" in translation else str(translation)
+            # Find the translator panel
+            if hasattr(app.rss_layout.parent, 'children'):
+                for child in app.rss_layout.parent.children:
+                    if isinstance(child, TranslatorPanel):
+                        child.source_text.text = sentence
+                        child.result_text.text = result
+                        break
+            
+        if hasattr(app, 'translator'):
+            app.translator.queue_translation(sentence, callback=after_translation)
+            
+        # Swallow event to prevent it from propagating to other handlers
+        return True
 
     # Helper: convert Kivy (row,col) to global text index
     def get_index_from_cursors(self, row, col):
         lines = self.text.split('\n')
         idx = sum(len(line)+1 for line in lines[:row]) + col
         return min(idx, len(self.text))
-        
-    # Override on_touch_down completely to avoid default behavior for right clicks
-    def on_touch_down(self, touch):
-        if touch.button == 'right' and self.collide_point(*touch.pos):
-            # Don't do anything with right clicks, let on_mouse_down handle it
-            return True
-        # Only use default behavior for left clicks
-        return super().on_touch_down(touch)
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
