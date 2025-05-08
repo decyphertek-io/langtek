@@ -28,80 +28,103 @@ class CodeDisplay(TextInput):
         self.font_name = "DejaVuSansMono"  # Use built-in Kivy monospace font
         self.cursor_blink = False
         self.do_wrap = False
-        # Disable bubbles and handles to prevent red dots on right click
+        
+        # Critical settings to prevent ANY visual feedback on right-click
         self.use_bubble = False
         self.use_handles = False
-        self.is_right_click = False
-        Window.unbind(on_mouse_down=self.right_click_sentence_to_translator)  # Unbind if previously bound
-        Window.bind(on_mouse_down=self.right_click_sentence_to_translator)
-
-    def on_touch_up(self, touch):
-        # For right clicks, don't call the parent method at all
-        if self.is_right_click and touch.button == 'right' and self.collide_point(*touch.pos):
-            self.is_right_click = False
-            return True
+        self.allow_copy = False
+        self.selection_color = [0, 0, 0, 0]  # Completely transparent
+        self.cursor_color = [0, 0, 0, 0]  # Transparent cursor
         
-        # For left clicks, use default behavior
-        res = super().on_touch_up(touch)
-        if self.selection_text:
-            Clipboard.copy(self.selection_text)
-        return res
+        # Unbind ALL existing mouse events
+        for event_type in list(Window.callbacks.keys()):
+            if 'mouse' in event_type:
+                for func in Window.callbacks.get(event_type, [])[:][:]:
+                    if hasattr(func, '__self__') and isinstance(func.__self__, CodeDisplay):
+                        Window.unbind(**{event_type: func})
         
-    def on_touch_down(self, touch):
-        # Completely intercept right-clicks
-        if touch.button == 'right' and self.collide_point(*touch.pos):
-            self.is_right_click = True
-            return True
-        # For left clicks, use default behavior
-        return super().on_touch_down(touch)
+        # Direct mouse event binding - more reliable than widget events
+        self._keyboard_mode = 'system'  # Prevent keyboard interaction with selection
+        Window.bind(mouse_pos=self._update_mouse_position)
+        Window.bind(on_mouse_down=self._on_global_mouse_down)
         
-    def on_touch_move(self, touch):
-        # Block touch move for right clicks too
-        if self.is_right_click and touch.button == 'right' and self.collide_point(*touch.pos):
-            return True
-        return super().on_touch_move(touch)
-        
-    def right_click_sentence_to_translator(self, window, x, y, button, modifiers):
-        # Only handle actual right clicks
+        # State tracking
+        self.mouse_position = (0, 0)
+        self.inside_widget = False
+    
+    def _update_mouse_position(self, window, pos):
+        """Track mouse position relative to this widget"""
+        self.mouse_position = self.to_widget(*pos)
+        self.inside_widget = self.collide_point(*self.mouse_position)
+        return False  # Don't block other handlers
+    
+    def _on_global_mouse_down(self, window, x, y, button, modifiers):
+        """Handle right-clicks at the Window level - before widget events"""
+        # Only handle right mouse button
         if button != 'right':
             return False
             
-        # Only handle clicks in our widget
-        if not self.collide_point(*self.to_widget(x, y)):
+        # Only handle clicks inside our widget
+        widget_pos = self.to_widget(x, y)
+        if not self.collide_point(*widget_pos):
             return False
             
-        # Find index in text under mouse pointer
-        local = self.to_widget(x, y)
-        local_x, local_y = local
-        cursor_col, cursor_row = self.get_cursor_from_xy(local_x, local_y)
-        idx = self.get_index_from_cursors(cursor_row, cursor_col)
-
-        # Get full text
+        # Get the sentence at the click position
+        try:
+            # Get the position in the text
+            cursor_col, cursor_row = self.get_cursor_from_xy(*widget_pos)
+            idx = self._get_text_index(cursor_row, cursor_col)
+            
+            # Extract the sentence
+            sentence = self._extract_sentence(idx)
+            if sentence:
+                # Copy to clipboard
+                Clipboard.copy(sentence)
+                
+                # Send to translator
+                self._send_to_translator(sentence)
+                
+                # Clear any selection that might have happened
+                self._clear_selection()
+                
+                # Force a redraw to make sure no visual artifacts remain
+                self.canvas.ask_update()
+                
+                # Schedule another selection clear to ensure no red dots appear
+                Clock.schedule_once(lambda dt: self._clear_selection(), 0.01)
+                
+                # Return True to block event propagation - CRITICAL!
+                return True
+        except Exception as e:
+            print(f"Error processing right-click: {e}")
+            
+        # Always block the right-click event in this widget
+        return True
+    
+    def _extract_sentence(self, idx):
+        """Extract a complete sentence containing the given index"""
         text = self.text
-        # Simple (approximate) sentence boundary search
+        
+        # Find sentence boundaries
         prev_p = text.rfind('.', 0, idx)
-        prev_q = text.rfind('?', 0, idx)
+        prev_q = text.rfind('?', 0, idx) 
         prev_e = text.rfind('!', 0, idx)
         prev_stop = max(prev_p, prev_q, prev_e)
         start = prev_stop + 1 if prev_stop != -1 else 0
-
+        
         next_p = text.find('.', idx)
         next_q = text.find('?', idx)
         next_e = text.find('!', idx)
         stops = [p for p in [next_p, next_q, next_e] if p != -1]
         end = min(stops) + 1 if stops else len(text)
-
-        # Get and clean the sentence
-        sentence = text[start:end].strip()
-        if not sentence:
-            return True  # nothing to add
-
-        # Copy the sentence to clipboard
-        Clipboard.copy(sentence)
-            
+        
+        return text[start:end].strip()
+    
+    def _send_to_translator(self, sentence):
+        """Send the sentence to the translator panel"""
         app = App.get_running_app()
+        
         def after_translation(word, translation):
-            # Show in translator panel
             result = translation["text"] if isinstance(translation, dict) and "text" in translation else str(translation)
             # Find the translator panel
             if hasattr(app.rss_layout.parent, 'children'):
@@ -110,18 +133,55 @@ class CodeDisplay(TextInput):
                         child.source_text.text = sentence
                         child.result_text.text = result
                         break
-            
+        
         if hasattr(app, 'translator'):
             app.translator.queue_translation(sentence, callback=after_translation)
-            
-        # Swallow event to prevent it from propagating to other handlers
-        return True
-
-    # Helper: convert Kivy (row,col) to global text index
-    def get_index_from_cursors(self, row, col):
+    
+    def _clear_selection(self):
+        """Aggressively clear any text selection"""
+        self._selection = False
+        self._selection_from = None
+        self._selection_to = None
+        self.cursor = (0, 0)
+        self.canvas.ask_update()
+    
+    def _get_text_index(self, row, col):
+        """Convert row,col coordinates to a text index"""
         lines = self.text.split('\n')
         idx = sum(len(line)+1 for line in lines[:row]) + col
         return min(idx, len(self.text))
+    
+    # Override ALL touch handlers to prevent default behavior for right-clicks
+    def on_touch_down(self, touch):
+        if touch.button == 'right' and self.collide_point(*touch.pos):
+            self._clear_selection()
+            return True
+        return super().on_touch_down(touch)
+    
+    def on_touch_move(self, touch):
+        if touch.button == 'right' and self.collide_point(*touch.pos):
+            return True
+        return super().on_touch_move(touch)
+    
+    def on_touch_up(self, touch):
+        if touch.button == 'right' and self.collide_point(*touch.pos):
+            self._clear_selection()
+            return True
+        res = super().on_touch_up(touch)
+        if self.selection_text:
+            Clipboard.copy(self.selection_text)
+        return res
+    
+    # Override insert behavior to prevent it during right-clicks
+    def insert_text(self, substring, from_undo=False):
+        # No text insertion during right-clicks
+        from kivy.base import EventLoop
+        for event in EventLoop.posted_events:
+            if (hasattr(event, 'button') and event.button == 'right' 
+                    and self.collide_point(*event.pos)):
+                return
+        return super().insert_text(substring, from_undo)
+from kivy.base import EventLoop
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
