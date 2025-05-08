@@ -1,4 +1,34 @@
-import kivy
+class CodeDisplay(TextInput):
+    """Read-only code/text display; supports selection and copying."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.readonly = True
+        self.font_name = "RobotoMono"  # Or any monospace font
+        self.cursor_blink = False
+        self.do_wrap = False
+        self.use_bubble = True
+        self.use_handles = True
+
+    def on_touch_up(self, touch):
+        res = super().on_touch_up(touch)
+        if self.selection_text:
+            Clipboard.copy(self.selection_text)
+        return resclass CodeDisplay(TextInput):
+    """Read-only code/text display; supports selection and copying."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.readonly = True
+        self.font_name = "RobotoMono"  # Or any monospace font
+        self.cursor_blink = False
+        self.do_wrap = False
+        self.use_bubble = True
+        self.use_handles = True
+
+    def on_touch_up(self, touch):
+        res = super().on_touch_up(touch)
+        if self.selection_text:
+            Clipboard.copy(self.selection_text)
+        return resimport kivy
 import os
 import json
 import feedparser
