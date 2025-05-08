@@ -21,17 +21,17 @@ from kivy.uix.textinput import TextInput
 from kivy.core.clipboard import Clipboard
 
 class CodeDisplay(TextInput):
-    """Read-only code/text display; supports selection and copying, and right-click contextual translation."""
+    """Read-only code/text display; right click sends sentence to translator box, left click keeps default behavior."""
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.readonly = True
-        self.font_name = "RobotoMono"  # Or any monospace font installed
+        self.font_name = "DejaVuSansMono"  # Use built-in Kivy monospace font
         self.cursor_blink = False
         self.do_wrap = False
-        self.use_bubble = True
-        self.use_handles = True
-        self.menu = None
-        Window.bind(on_mouse_down=self.right_click_menu)
+        # Disable bubbles and handles to prevent red dots on right click
+        self.use_bubble = False
+        self.use_handles = False
+        Window.bind(on_mouse_down=self.right_click_sentence_to_translator)
 
     def on_touch_up(self, touch):
         res = super().on_touch_up(touch)
@@ -39,139 +39,71 @@ class CodeDisplay(TextInput):
             Clipboard.copy(self.selection_text)
         return res
         
-    def right_click_menu(self, window, x, y, button, modifiers):
+    def right_click_sentence_to_translator(self, window, x, y, button, modifiers):
         if button == 'right' and self.collide_point(*self.to_widget(x, y)):
-            # Only show menu if some text is selected
-            if self.selection_text and self.selection_text.strip():
-                self.show_context_menu(x, y)
-            return True  # swallow event
+            # Set focus to prevent other widgets from getting focus
+            self.focus = True
+            
+            # Find index in text under mouse pointer
+            local = self.to_widget(x, y)
+            local_x, local_y = local
+            cursor_col, cursor_row = self.get_cursor_from_xy(local_x, local_y)
+            idx = self.get_index_from_cursors(cursor_row, cursor_col)
+
+            # Get full text
+            text = self.text
+            # Simple (approximate) sentence boundary search
+            prev_p = text.rfind('.', 0, idx)
+            prev_q = text.rfind('?', 0, idx)
+            prev_e = text.rfind('!', 0, idx)
+            prev_stop = max(prev_p, prev_q, prev_e)
+            start = prev_stop + 1 if prev_stop != -1 else 0
+
+            next_p = text.find('.', idx)
+            next_q = text.find('?', idx)
+            next_e = text.find('!', idx)
+            stops = [p for p in [next_p, next_q, next_e] if p != -1]
+            end = min(stops) + 1 if stops else len(text)
+
+            # Get and clean the sentence
+            sentence = text[start:end].strip()
+            if not sentence:
+                return True  # nothing to add
+
+            app = App.get_running_app()
+            def after_translation(word, translation):
+                # Show in translator panel
+                result = translation["text"] if isinstance(translation, dict) and "text" in translation else str(translation)
+                # Find the translator panel
+                if hasattr(app.rss_layout.parent, 'children'):
+                    for child in app.rss_layout.parent.children:
+                        if isinstance(child, TranslatorPanel):
+                            child.source_text.text = sentence
+                            child.result_text.text = result
+                            break
+                
+            if hasattr(app, 'translator'):
+                app.translator.queue_translation(sentence, callback=after_translation)
+                
+            # Copy the sentence to clipboard as well
+            Clipboard.copy(sentence)
+                
+            return True  # swallow event, CRITICAL to prevent article page opening
         return False
 
-    def show_context_menu(self, x, y):
-        if self.menu:
-            self.menu.dismiss()
+    # Helper: convert Kivy (row,col) to global text index
+    def get_index_from_cursors(self, row, col):
+        lines = self.text.split('\n')
+        idx = sum(len(line)+1 for line in lines[:row]) + col
+        return min(idx, len(self.text))
         
-        # Create dropdown menu
-        dropdown = DropDown()
-
-        btn_translate = Button(
-            text="Translate selection", 
-            size_hint_y=None, 
-            height=dp(44),
-            background_color=(0.2, 0.5, 0.8, 1)
-        )
-        btn_translate.bind(on_release=lambda btn: self.translate_selected_text())
-        dropdown.add_widget(btn_translate)
-
-        btn_copy = Button(
-            text="Copy selection", 
-            size_hint_y=None, 
-            height=dp(44),
-            background_color=(0.3, 0.3, 0.3, 1)
-        )
-        btn_copy.bind(on_release=lambda btn: self.copy_selection())
-        dropdown.add_widget(btn_copy)
-
-        # Position the menu at cursor
-        self.menu = ModalView(
-            size_hint=(None, None), 
-            size=(dp(180), dp(88)), 
-            auto_dismiss=True,
-            background_color=(0.2, 0.2, 0.2, 0.9)
-        )
-        self.menu.add_widget(dropdown)
-        self.menu.open()
-        # Position menu where right-click happened
-        self.menu.pos = (x, y - dp(88))  # Position above cursor
-
-    def copy_selection(self):
-        if self.selection_text:
-            Clipboard.copy(self.selection_text)
-        if self.menu:
-            self.menu.dismiss()
-
-    def translate_selected_text(self):
-        selection = self.selection_text
-        if selection:
-            app = App.get_running_app()
-            
-            # Create a loading popup
-            loading_popup = Popup(
-                title='Translating...',
-                content=Label(text='Please wait while translating...'),
-                size_hint=(None, None), 
-                size=(dp(300), dp(150)),
-                auto_dismiss=False
-            )
-            loading_popup.open()
-            
-            # Callback for when translation is complete
-            def on_translation_done(word, translation):
-                loading_popup.dismiss()
-                
-                # Get the translation text
-                if isinstance(translation, dict) and "text" in translation:
-                    trans_text = translation["text"]
-                    source = f"\n\nSource: {translation.get('api', 'API')}"
-                else:
-                    trans_text = str(translation)
-                    source = ""
-                
-                # Create content for the popup
-                content = BoxLayout(orientation='vertical', padding=dp(10))
-                
-                # Add scrollable text display for translation
-                scroll = ScrollView()
-                translation_display = CodeDisplay(
-                    text=trans_text + source,
-                    readonly=True,
-                    background_color=(0.95, 0.95, 0.95, 1),
-                    foreground_color=(0, 0, 0, 1),
-                    size_hint=(1, None),
-                    height=dp(200)
-                )
-                translation_display.bind(minimum_height=translation_display.setter('height'))
-                scroll.add_widget(translation_display)
-                content.add_widget(scroll)
-                
-                # Add close button
-                close_btn = Button(
-                    text="Close", 
-                    size_hint=(1, None), 
-                    height=dp(50),
-                    background_color=(0.2, 0.5, 0.8, 1)
-                )
-                content.add_widget(close_btn)
-                
-                # Create and show the popup
-                result_popup = Popup(
-                    title='Translation Result',
-                    content=content,
-                    size_hint=(None, None), 
-                    size=(dp(400), dp(300)),
-                    auto_dismiss=True
-                )
-                close_btn.bind(on_release=result_popup.dismiss)
-                result_popup.open()
-            
-            # Use the app's translation service
-            if hasattr(app, 'translator'):
-                app.translator.queue_translation(
-                    selection.strip(), 
-                    callback=on_translation_done
-                )
-            else:
-                loading_popup.dismiss()
-                error_popup = Popup(
-                    title='Error',
-                    content=Label(text="Translation service not available."),
-                    size_hint=(None, None), 
-                    size=(dp(300), dp(150))
-                )
-                error_popup.open()
-                
-        if self.menu:
-            self.menu.dismiss()
+    # Override on_touch_down completely to avoid default behavior for right clicks
+    def on_touch_down(self, touch):
+        if touch.button == 'right' and self.collide_point(*touch.pos):
+            # Don't do anything with right clicks, let on_mouse_down handle it
+            return True
+        # Only use default behavior for left clicks
+        return super().on_touch_down(touch)
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.gridlayout import GridLayout
@@ -1072,13 +1004,12 @@ KV = '''
                                 text_size: self.width, None
                                 halign: 'left'
                                 markup: True
-                        TextInput:
+                        CodeDisplay:
                                 id: article_content
                                 text: root.article_content
                                 color: 0, 0, 0, 1
                                 size_hint_y: None
                                 height: max(self.minimum_height, dp(400))
-                                readonly: True
                                 background_normal: ''
                                 background_active: ''
                                 background_color: 0.95, 0.95, 0.95, 0
@@ -2115,46 +2046,25 @@ class RSSApp(App):
                 self.db_editor_screen.ids.status_label.text = f"Error: {e}"
 
     def check_selection(self, dt):
-        """Check for text selection and show a translate button if needed"""
-        if not self.article_screen or not hasattr(self.article_screen.ids, 'article_content'):
-            return
-        
-        text_input = self.article_screen.ids.article_content
-        if text_input.selection_text:
-            if not hasattr(self, 'selection_button') or not self.selection_button.parent:
-                # Create a button near the selection
-                self.selection_button = Button(
-                    text="Translate Selection",
-                    size_hint=(None, None),
-                    size=(dp(150), dp(40)),
-                    pos=(text_input.cursor_pos[0] + dp(20), text_input.cursor_pos[1] - dp(40)),
-                    background_color=(0.2, 0.5, 0.8, 0.9)
-                )
-                self.selection_button.bind(on_release=self.translate_selected_text)
-                self.rss_layout.add_widget(self.selection_button)
-        elif hasattr(self, 'selection_button') and self.selection_button.parent:
-            self.rss_layout.remove_widget(self.selection_button)
+        """Check for text selection - with right-click to translate, we don't need the button anymore"""
+        # This function is kept for compatibility but doesn't need to do anything
+        # since we now use right-click to translate sentences directly
+        pass
 
-    def translate_selected_text(self, instance):
-        """Translate selected text and send to translator panel"""
-        if not self.article_screen or not hasattr(self.article_screen.ids, 'article_content'):
-            return
+    def translate_selected_text(self, instance=None, text=None):
+        """Translate text and send to translator panel"""
+        if not text and self.article_screen and hasattr(self.article_screen.ids, 'article_content'):
+            text_input = self.article_screen.ids.article_content
+            text = text_input.selection_text
         
-        text_input = self.article_screen.ids.article_content
-        selected_text = text_input.selection_text
-        
-        if selected_text and hasattr(self.rss_layout.parent, 'children'):
+        if text and hasattr(self.rss_layout.parent, 'children'):
             # Find the translator panel
             for child in self.rss_layout.parent.children:
                 if isinstance(child, TranslatorPanel):
                     # Set the text and trigger translation
-                    child.source_text.text = selected_text
+                    child.source_text.text = text
                     child.on_translate(None)
                     break
-        
-        # Remove the selection button
-        if hasattr(self, 'selection_button') and self.selection_button.parent:
-            self.rss_layout.remove_widget(self.selection_button)
 
 if __name__ == '__main__':
     RSSApp().run()
