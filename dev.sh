@@ -47,12 +47,6 @@ else
     echo "Virtual environment $VENV_DIR already exists."
 fi
 
-# First check if dev.py exists, if not, create it from main.py
-if [ ! -f "dev.py" ]; then
-    echo "Creating dev.py from main.py..."
-    cp main.py dev.py
-fi
-
 # Activate virtual environment (for installing packages) and run the app
 echo "Activating virtual environment and installing dependencies..."
 source "$VENV_DIR/bin/activate"

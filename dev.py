@@ -16,43 +16,47 @@ import random
 import queue
 from io import BytesIO
 from PIL import Image as PILImage
+
+# Fix the import order to ensure ScrollView is defined before use
 from kivy.app import App
+from kivy.uix.scrollview import ScrollView
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
+from kivy.core.window import Window
 from kivy.core.clipboard import Clipboard
 
+# No need for clipboard operations in our simplified implementation
+
 class CodeDisplay(ScrollView):
-    """Read-only code/text display that completely bypasses the TextInput selection system.
-    Uses a Label instead of TextInput to avoid ANY selection indicators."""
+    """Guaranteed no-red-dot display. Ultra simple with no visual effects."""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
-        # Create layout for the label
-        self.layout = GridLayout(cols=1, size_hint_y=None)
-        self.layout.bind(minimum_height=self.layout.setter('height'))
+        # Just a grid and a label - nothing fancy
+        self.grid = GridLayout(cols=1, size_hint_y=None)
+        self.grid.bind(minimum_height=self.grid.setter('height'))
         
-        # Create the label that holds the text content
-        self.text_label = Label(
+        # Plain label with no selection capabilities
+        self.label = Label(
             size_hint_y=None,
-            markup=True,  # Support markup for formatting
-            font_name="DejaVuSansMono",  # Use built-in Kivy monospace font
-            color=(0, 0, 0, 1),  # Black text (for article view)
-            text_size=(None, None),
+            text="",
             halign='left',
             valign='top',
+            font_name="DejaVuSansMono",
+            color=(0, 0, 0, 1),
             padding=(10, 10)
         )
         
-        # Add the label to the layout
-        self.layout.add_widget(self.text_label)
+        # Add to layout
+        self.grid.add_widget(self.label)
+        self.add_widget(self.grid)
         
-        # Add the layout to the scroll view
-        self.add_widget(self.layout)
+        # Only catch right-click
+        Window.bind(on_mouse_down=self._on_right_click)
         
-        # Bind to mouse events directly at Window level
-        Window.bind(on_mouse_down=self.on_mouse_down)
-        
-        # Text content property
+        # Store text internally
         self._text = ""
     
     @property
@@ -62,152 +66,105 @@ class CodeDisplay(ScrollView):
     @text.setter
     def text(self, value):
         self._text = value
-        self.text_label.text = value
-        # Update label size when text changes
-        self.text_label.texture_update()
-        if self.text_label.texture:
-            self.text_label.height = self.text_label.texture.height
-            self.text_label.width = self.text_label.texture.width
-            self.layout.height = self.text_label.height
-            # Set width to match the scroll view to enable text wrapping
-            self.text_label.text_size = (self.width, None)
+        self.label.text = value
+        self.label.texture_update()
+        if self.label.texture:
+            self.label.height = self.label.texture.height
+            self.grid.height = self.label.height
+            self.label.text_size = (self.width, None)
     
     def on_size(self, *args):
-        """Update text wrapping when size changes"""
-        if hasattr(self, 'text_label'):
-            self.text_label.text_size = (self.width, None)
-            self.text_label.texture_update()
-            if self.text_label.texture:
-                self.text_label.height = self.text_label.texture.height
-                self.layout.height = self.text_label.height
+        self.label.text_size = (self.width, None)
+        self.label.texture_update()
+        if self.label.texture:
+            self.label.height = self.label.texture.height
+            self.grid.height = self.label.height
     
-    def on_mouse_down(self, window, x, y, button, modifiers):
-        """Handle mouse clicks, especially right-clicks for translation"""
-        # Only process right-clicks
+    def _on_right_click(self, window, x, y, button, modifiers):
+        # Only handle right click
         if button != 'right':
             return False
             
-        # Convert window coordinates to widget coordinates
+        # Only handle clicks inside our widget
         if not self.collide_point(*self.to_widget(x, y)):
             return False
             
-        # Handle right-click (extract sentence and translate)
+        # Find sentence near click position
         pos = self.to_local(*self.to_widget(x, y))
+        sentence = self._get_sentence_at_position(pos)
         
-        # Get the sentence under the mouse cursor
-        sentence = self.get_sentence_at_position(pos)
-        if sentence:
-            # Copy to clipboard
-            Clipboard.copy(sentence)
+        # Send to translator
+        if sentence and hasattr(App.get_running_app(), 'translator'):
+            App.get_running_app().translator.queue_translation(
+                sentence, 
+                callback=self._update_translator
+            )
             
-            # Send to translator
-            app = App.get_running_app()
-            def after_translation(word, translation):
-                result = translation["text"] if isinstance(translation, dict) and "text" in translation else str(translation)
-                # Find the translator panel
-                if hasattr(app.rss_layout.parent, 'children'):
-                    for child in app.rss_layout.parent.children:
-                        if isinstance(child, TranslatorPanel):
-                            child.source_text.text = sentence
-                            child.result_text.text = result
-                            break
-            
-            if hasattr(app, 'translator'):
-                app.translator.queue_translation(sentence, callback=after_translation)
-        
-        # Always return True for right-clicks to prevent event propagation
+        # Block event - this prevents any default handling
         return True
     
-    def get_sentence_at_position(self, pos):
-        """Estimate the sentence containing the position in the text.
-        This is an approximation since we don't have character-level positioning."""
+    def _update_translator(self, word, translation):
+        """Update translator panel with results"""
+        result = translation["text"] if isinstance(translation, dict) and "text" in translation else str(translation)
+        app = App.get_running_app()
+        for child in app.rss_layout.parent.children:
+            if hasattr(child, 'source_text') and hasattr(child, 'result_text'):
+                child.source_text.text = word
+                child.result_text.text = result
+                break
+    
+    def _get_sentence_at_position(self, pos):
+        """Get sentence from text at position"""
         if not self._text:
             return ""
-            
-        # Calculate approximate character position based on y position within text
-        y_offset = self.layout.height - pos[1] + self.scroll_y * (self.layout.height - self.height)
         
-        # Estimate line height based on font size and average line height
-        approx_line_height = 20  # Approximate pixels per line
-        line_index = int(y_offset / approx_line_height)
+        # Calculate which line we're on
+        line_height = 20  # Approximate line height in pixels
+        offset_y = self.grid.height - pos[1] + self.scroll_y * (self.grid.height - self.height)
+        line_index = int(offset_y / line_height)
         
-        # Get lines of text
+        # Get the lines of text
         lines = self._text.split('\n')
         
-        # Ensure line index is valid
+        # Make sure line index is valid
         if line_index < 0:
             line_index = 0
         if line_index >= len(lines):
             line_index = len(lines) - 1
-            
-        # Get the current line
-        current_line = lines[line_index]
         
-        # Now find sentence boundaries
-        # Start by getting text before and after current line
-        text_before = '\n'.join(lines[:line_index])
-        text_after = '\n'.join(lines[line_index+1:])
+        # Extract current line and surrounding context
+        start_idx = max(0, line_index - 2)
+        end_idx = min(len(lines), line_index + 3)
+        context_lines = lines[start_idx:end_idx]
         
-        # Find sentence boundaries
-        # Get last sentence end in text before current line
-        prev_dot = text_before.rfind('.')
-        prev_question = text_before.rfind('?')
-        prev_exclamation = text_before.rfind('!')
-        prev_stop = max(prev_dot, prev_question, prev_exclamation)
+        # Join with spaces to create a sentence
+        sentence = ' '.join([line.strip() for line in context_lines if line.strip()])
         
-        # Get text from last sentence boundary to current line
-        start_of_sentence = text_before[prev_stop+1:] if prev_stop >= 0 else text_before
-        
-        # Get next sentence end in current line and text after
-        combined_text = current_line + '\n' + text_after
-        next_dot = combined_text.find('.')
-        next_question = combined_text.find('?')
-        next_exclamation = combined_text.find('!')
-        
-        # Find the closest sentence ending
-        next_stops = [p for p in [next_dot, next_question, next_exclamation] if p >= 0]
-        if next_stops:
-            end_pos = min(next_stops)
-            end_of_sentence = combined_text[:end_pos+1]
-        else:
-            end_of_sentence = combined_text
-        
-        # Combine to get the full sentence
-        if start_of_sentence and end_of_sentence:
-            sentence = (start_of_sentence + '\n' + end_of_sentence).strip()
-        elif start_of_sentence:
-            sentence = start_of_sentence.strip()
-        else:
-            sentence = end_of_sentence.strip()
-            
-        # Clean up the sentence - remove newlines
-        sentence = sentence.replace('\n', ' ')
-        while '  ' in sentence:
-            sentence = sentence.replace('  ', ' ')
-            
         return sentence
 from kivy.base import EventLoop
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.gridlayout import GridLayout
-from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.button import Button
-from kivy.uix.textinput import TextInput
-from kivy.uix.scrollview import ScrollView
 from kivy.uix.modalview import ModalView
 from kivy.uix.image import AsyncImage
 from kivy.properties import StringProperty, ListProperty, ObjectProperty, BooleanProperty
-from kivy.core.window import Window
 from kivy.clock import Clock
 from kivy.utils import platform
 from kivy.uix.dropdown import DropDown
 from functools import partial
 from kivy.metrics import dp
 from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
-from pyglossary.glossary_v2 import Glossary
 from datetime import datetime
-from kivy.core.clipboard import Clipboard
+
+# Try to import pyglossary, but don't fail if it's not available
+try:
+    from pyglossary.glossary_v2 import Glossary
+except ImportError:
+    logging.warning("pyglossary module not available")
+    class Glossary:
+        """Dummy class when pyglossary is not available"""
+        pass
 
 # Setup logging to file
 logging.basicConfig(
