@@ -33,6 +33,7 @@ Python translation Libraries:
 * https://pypi.org/project/argostranslate/
 * https://pypi.org/project/apertium/
 * https://pypi.org/project/pymultidictionary/
+* https://pypi.org/project/translators/
 
 Translator GUI APP:
 ------------------
