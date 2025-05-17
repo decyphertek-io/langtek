@@ -3,7 +3,11 @@
 import os
 import sqlite3
 import time
-import translators as ts
+
+# Set the region explicitly before importing translators
+os.environ["translators_default_region"] = "EN"
+
+import translators.server as tss
 
 class TranslationDB:
     def __init__(self, db_path='translations.db'):
@@ -59,7 +63,7 @@ class TranslationDB:
         )
         self.conn.commit()
     
-    def translate(self, word, from_lang='es', to_lang='en'):
+    def translate(self, word, from_lang='es_US', to_lang='en_US'):
         """Translate a word using multiple translation services with fallback."""
         # Check if translation already exists in database
         existing = self.get_translation(word)
@@ -72,16 +76,21 @@ class TranslationDB:
             try:
                 print(f"Translating {word} with {translator}...")
                 
-                # Use translate_text directly with http_client parameter
-                translation = ts.translate_text(
-                    query_text=word,
-                    translator=translator,
-                    from_language=from_lang,
-                    to_language=to_lang,
-                    http_client='requests',  # Use requests instead of httpx
-                    if_use_preacceleration=False,
-                    timeout=10
-                )
+                # Different handling based on translator
+                if translator == 'google':
+                    translation = tss.google(word, from_language=from_lang, to_language=to_lang)
+                elif translator == 'deepl':
+                    translation = tss.deepl(word, from_language=from_lang, to_language=to_lang)
+                elif translator == 'modernmt':
+                    translation = tss.modernmt(word, from_language=from_lang, to_language=to_lang)
+                elif translator == 'apertium':
+                    translation = tss.apertium(word, from_language=from_lang, to_language=to_lang)
+                elif translator == 'argos':
+                    translation = tss.argos(word, from_language=from_lang, to_language=to_lang)
+                elif translator == 'lingvanex':
+                    translation = tss.lingvanex(word, from_language=from_lang, to_language=to_lang)
+                else:
+                    continue
                 
                 if translation:
                     # Save to database
