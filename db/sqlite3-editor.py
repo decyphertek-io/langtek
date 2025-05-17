@@ -38,12 +38,25 @@ class DatabaseEditor(BoxLayout):
         english = self.english_input.text.strip()
         if spanish and english:
             try:
-                self.cursor.execute(
-                    "INSERT OR REPLACE INTO translations (word, translation) VALUES (?, ?)",
-                    (spanish.lower(), english)
-                )
+                # First check if the word exists
+                self.cursor.execute("SELECT * FROM translations WHERE word = ? COLLATE NOCASE", (spanish.lower(),))
+                existing = self.cursor.fetchone()
+                
+                if existing:
+                    # Update existing record
+                    self.cursor.execute(
+                        "UPDATE translations SET translation = ? WHERE word = ?",
+                        (english, spanish.lower())
+                    )
+                else:
+                    # Insert new record
+                    self.cursor.execute(
+                        "INSERT INTO translations (word, translation) VALUES (?, ?)",
+                        (spanish.lower(), english)
+                    )
+                
                 self.conn.commit()
-                self.result_label.text = f'Added: {spanish} → {english}'
+                self.result_label.text = f'Updated: {spanish} → {english}'
             except Exception as e:
                 self.result_label.text = f'Error: {str(e)}'
         else:
@@ -52,7 +65,7 @@ class DatabaseEditor(BoxLayout):
     def search_translation(self, instance):
         spanish = self.spanish_input.text.strip()
         if spanish:
-            self.cursor.execute("SELECT translation FROM translations WHERE word = ? COLLATE NOCASE", (spanish,))
+            self.cursor.execute("SELECT translation FROM translations WHERE word = ? COLLATE NOCASE", (spanish.lower(),))
             result = self.cursor.fetchone()
             if result:
                 self.english_input.text = result[0]
