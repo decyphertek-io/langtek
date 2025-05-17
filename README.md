@@ -6,7 +6,7 @@ Issues:
 ------
 * Working on cleaning up the Database.
 * Some translators are adding * and Caps to the saved translations.
-* When fixing it adn rebuilding the DB, some words not being trasnlated.
+* When fixing it and rebuilding the DB, some words not being translated.
 * I am actively fixing these issues and rebuilding the DB, when the DB is built runs smoothly. 
 * Please note this is in DEV. 
 
@@ -19,31 +19,6 @@ Getting Started:
 bash main.sh
 ```
 * This will create a virtual python environment and run the application. 
-
-Research:
-=======
-* Not all of this is implemented. 
-* OR it was tested and didnt work as expected. 
-* IF Not , then will experiment. 
-
-Python translation Libraries:
-------------------------------
-* https://pypi.org/project/pyglossary/
-* https://pypi.org/project/libretranslate/
-* https://pypi.org/project/argostranslate/
-* https://pypi.org/project/apertium/
-* https://pypi.org/project/pymultidictionary/
-* https://pypi.org/project/translators/
-
-Translator GUI APP:
-------------------
-* https://github.com/dialect-app/dialect
-
-Spanish Offline Dictinaries(Using a custom one instead):
----------------------------
-* https://freedict.org/downloads/
-* https://www.wikdict.com/page/download
-* https://github.com/open-dict-data/wikidict-es
 
 Malo Words:
 ------------------------------------------------------
