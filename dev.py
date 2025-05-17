@@ -184,9 +184,28 @@ class TranslationService:
         self.debug_mode = True
         self.used_dictionary = "Translation APIs + SQLite"
         
+        # Initialize database connection
+        self.db_path = 'translations.db'
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self.cursor = self.conn.cursor()
+        
+        # Create table if it doesn't exist
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS translations (
+                id INTEGER PRIMARY KEY,
+                word TEXT NOT NULL,
+                translation TEXT NOT NULL,
+                source TEXT DEFAULT 'google',
+                date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        self.conn.commit()
+        
         self.translation_queue = queue.Queue()
         self.queue_lock = threading.Lock()
         self.translation_thread = threading.Thread(target=self._process_translation_queue, daemon=True)
+        self.translation_thread.start()
+        
         self.max_requests_per_minute = 10
         self.request_timestamps = []
         
@@ -216,153 +235,68 @@ class TranslationService:
         
         logger.info("Initializing TranslationService with multiple APIs")
         
-        self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
-        self.db_file = os.path.join(self.db_dir, 'translations.db')
-        
-        self.thread_local = threading.local()
-        
-        self._get_db_connection()
-        self.init_database()
-        
-        self.translation_thread.start()
-    
     def set_refresh_callback(self, callback):
         """Set a function to call when pending translations are completed"""
         self.refresh_callback = callback
         
-    def _get_db_connection(self):
-        """Get a thread-local database connection with better locking"""
-        if not hasattr(self.thread_local, 'db_conn'):
-            # Create db directory if it doesn't exist
-            os.makedirs(self.db_dir, exist_ok=True)
-            
-            # Create a new connection for this thread with timeout
-            self.thread_local.db_conn = sqlite3.connect(
-                self.db_file, 
-                timeout=30.0,  # Wait up to 30 seconds for lock to clear
-                isolation_level=None  # Enable autocommit mode
-            )
-            
-            # Enable WAL mode for better concurrency
-            cursor = self.thread_local.db_conn.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            cursor.execute("PRAGMA busy_timeout=30000")  # 30 seconds
-            
-            logger.debug(f"Created new SQLite connection for thread {threading.get_ident()}")
-        
-        return self.thread_local.db_conn
-        
-    def init_database(self):
-        """Initialize the SQLite database for translations"""
-        try:
-            # Create directory if it doesn't exist
-            os.makedirs(self.db_dir, exist_ok=True)
-            
-            # Connect to the database (using thread-local connection)
-            conn = self._get_db_connection()
-            cursor = conn.cursor()
-            
-            # Create table if it doesn't exist
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS translations (
-                id INTEGER PRIMARY KEY,
-                word TEXT NOT NULL,
-                translation TEXT NOT NULL,
-                source TEXT DEFAULT 'google',
-                date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            ''')
-            
-            # Create index on word for faster lookups
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_word ON translations(word)')
-            
-            # Commit changes
-            conn.commit()
-            
-            logger.info(f"Database initialized at {self.db_file}")
-            print(f"Database initialized at {self.db_file}")
-            
-        except Exception as e:
-            logger.error(f"Error initializing database: {e}")
-            print(f"Error initializing database: {e}")
-            self.translator_available = False
-            
     def _process_translation_queue(self):
-        """Background thread that processes translation requests in the queue"""
-        logger.info("Translation queue processor thread started")
-        
+        """Process items in the translation queue."""
         while True:
             try:
-                # Get a translation request from the queue
-                request = self.translation_queue.get(timeout=1)
-                if not request:
-                    self.translation_queue.task_done()
-                    continue
-                    
-                word, from_lang, to_lang, callback = request
-                
-                # Rate limiting - ensure we don't exceed max_requests_per_minute
-                with self.queue_lock:
-                    current_time = time.time()
-                    # Remove timestamps older than 1 minute
-                    self.request_timestamps = [ts for ts in self.request_timestamps 
-                                              if current_time - ts < 60]
-                    
-                    if len(self.request_timestamps) >= self.max_requests_per_minute:
-                        # We've hit our rate limit, wait until we can make another request
-                        sleep_time = 60 - (current_time - self.request_timestamps[0])
-                        if sleep_time > 0:
-                            logger.debug(f"Rate limiting: waiting {sleep_time:.2f}s before next translation")
-                            time.sleep(sleep_time)
-                    
-                    # Add the current timestamp
-                    self.request_timestamps.append(time.time())
+                word, from_lang, to_lang, callback = self.translation_queue.get()
                 
                 # Check database first
-                translation = None
-                try:
-                    # Get thread-local connection
-                    db_conn = self._get_db_connection()
-                    db_cursor = db_conn.cursor()
-                    db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word.lower(),))
-                    result = db_cursor.fetchone()
-                    if result:
-                        translation = result[0]
-                        logger.debug(f"Queue: Found '{word}' in database")
-                except Exception as db_error:
-                    logger.error(f"Queue: Database error: {db_error}")
+                self.cursor.execute("SELECT translation FROM translations WHERE word = ?", (word.lower(),))
+                result = self.cursor.fetchone()
                 
-                # If not in database, perform online translation
-                if not translation:
-                    try:
-                        translation = self._perform_online_translation(word, from_lang, to_lang)
-                        if translation:
-                            # Save to database
-                            try:
-                                self._save_translation_to_db(word, translation)
-                            except Exception as save_error:
-                                logger.error(f"Queue: Error saving to database: {save_error}")
-                    except Exception as translate_error:
-                        logger.error(f"Queue: Translation error: {translate_error}")
+                if result:
+                    translation = result[0]
+                else:
+                    # Try translation services
+                    translation = None
+                    for api_config in self.translation_apis:
+                        try:
+                            with api_config['lock']:
+                                # Rate limiting
+                                while len(api_config['timestamps']) >= api_config['max_per_minute']:
+                                    oldest = min(api_config['timestamps'])
+                                    if time.time() - oldest < 60:
+                                        time.sleep(1)
+                                    else:
+                                        api_config['timestamps'].remove(oldest)
+                                        break
+                                
+                                if api_config['name'] == 'LibreTranslate':
+                                    translation = self._translate_libretranslate(word, from_lang, to_lang)
+                                elif api_config['name'] == 'Lingva':
+                                    translation = self._translate_lingva(word, from_lang, to_lang)
+                                elif api_config['name'] == 'DeepL':
+                                    translation = self._translate_deepl(word, from_lang, to_lang)
+                                
+                                if translation:
+                                    # Save to database
+                                    self.cursor.execute("INSERT INTO translations (word, translation, source) VALUES (?, ?, ?)", 
+                                                      (word.lower(), translation, api_config['name']))
+                                    self.conn.commit()
+                                    break
+                        except Exception as e:
+                            logger.error(f"Error with {api_config['name']}: {str(e)}")
+                            continue
                 
-                # Call the callback with the result
                 if callback:
-                    try:
-                        callback(word, translation or "[no translation found]")
-                    except Exception as callback_error:
-                        logger.error(f"Queue: Callback error: {callback_error}")
+                    callback(word, translation)
                 
-                # Mark task as done
-                self.translation_queue.task_done()
-                
-            except queue.Empty:
-                # No requests in queue, just continue
-                pass
             except Exception as e:
-                logger.error(f"Queue processor error: {e}")
-                # Sleep a bit to prevent tight looping if there's an error
-                time.sleep(0.5)
+                logger.error(f"Error in translation queue: {str(e)}")
+                continue
+            
+            finally:
+                self.translation_queue.task_done()
+    
+    def close(self):
+        """Close database connection."""
+        if self.conn:
+            self.conn.close()
     
     def _perform_online_translation(self, word, from_lang='es', to_lang='en'):
         """Perform actual online translation using multiple APIs with fallback"""
@@ -548,10 +482,8 @@ class TranslationService:
                 return translation
             
             # Check directly in SQLite translations.db database
-            conn = self._get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word_lower,))
-            result = cursor.fetchone()
+            self.cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word_lower,))
+            result = self.cursor.fetchone()
             
             if result:
                 translation, source = result
@@ -620,13 +552,11 @@ class TranslationService:
                 
                 # Save to database using thread-local connection
                 try:
-                    conn = self._get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute(
+                    self.cursor.execute(
                         'INSERT OR REPLACE INTO translations (word, translation, source) VALUES (?, ?, ?)',
                         (word_lower, translation, api_used)
                     )
-                    conn.commit()
+                    self.conn.commit()
                 except Exception as db_error:
                     logger.error(f"Error saving translation to database: {db_error}")
                     if self.debug_mode:
@@ -747,15 +677,7 @@ class TranslationService:
     
     def __del__(self):
         """Close database connection"""
-        # Try to shut down the queue gracefully
-        try:
-            if hasattr(self, 'translation_queue'):
-                # Add None to signal thread to stop
-                self.translation_queue.put(None)
-        except:
-            pass
-        
-        # No need to close connections - they're thread-local and will be cleaned up automatically
+        self.close()
 
     def _save_translation_to_db(self, word, translation):
         """Save a word and its translation to the database"""
@@ -768,20 +690,12 @@ class TranslationService:
             # Get the source from the dictionary or use default
             source = translation.get("api", "API") if isinstance(translation, dict) else "API"
             
-            conn = self._get_db_connection()
-            cursor = conn.cursor()
-            
-            # Check if word already exists
-            cursor.execute("SELECT word FROM translations WHERE word=?", (word.lower(),))
-            exists = cursor.fetchone()
-            
-            if not exists:
-                cursor.execute(
-                    "INSERT INTO translations (word, translation, source, created_at) VALUES (?, ?, ?, ?)",
-                    (word.lower(), translation_text, source, datetime.now().isoformat())
-                )
-                conn.commit()
-                logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {source}")
+            self.cursor.execute(
+                "INSERT OR REPLACE INTO translations (word, translation, source, created_at) VALUES (?, ?, ?, ?)",
+                (word.lower(), translation_text, source, datetime.now().isoformat())
+            )
+            self.conn.commit()
+            logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {source}")
             
         except Exception as e:
             logger.error(f"[Queue       ] Error saving to database: {e}")
@@ -1903,22 +1817,11 @@ class RSSApp(App):
         
         try:
             # Get all translations
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
+            self.translator.cursor.execute(
+                "SELECT word, translation, source FROM translations ORDER BY date_added DESC LIMIT 100"
+            )
             
-            if search_term:
-                # Search for specific terms
-                cursor.execute(
-                    "SELECT word, translation, source FROM translations WHERE word LIKE ? OR translation LIKE ? ORDER BY word LIMIT 200",
-                    (f"%{search_term}%", f"%{search_term}%")
-                )
-            else:
-                # Get recent translations
-                cursor.execute(
-                    "SELECT word, translation, source FROM translations ORDER BY date_added DESC LIMIT 100"
-                )
-                
-            translations = cursor.fetchall()
+            translations = self.translator.cursor.fetchall()
             
             for word, translation, source in translations:
                 # Create a button for the list
@@ -1975,10 +1878,8 @@ class RSSApp(App):
             
         try:
             # Get current translation data from DB
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word.lower(),))
-            result = cursor.fetchone()
+            self.translator.cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word.lower(),))
+            result = self.translator.cursor.fetchone()
             
             if not result:
                 return
@@ -2008,36 +1909,18 @@ class RSSApp(App):
             
         try:
             # Save to database
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
-            
-            # Check if word exists
-            cursor.execute("SELECT id FROM translations WHERE word = ?", (word.lower(),))
-            result = cursor.fetchone()
-            
-            if result:
-                # Update existing translation
-                cursor.execute(
-                    "UPDATE translations SET translation = ?, source = 'manual', date_added = CURRENT_TIMESTAMP WHERE word = ?",
-                    (translation, word.lower())
-                )
-                action = "Updated"
-            else:
-                # Add new translation
-                cursor.execute(
-                    "INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, 'manual')",
-                    (word.lower(), translation)
-                )
-                action = "Added"
-                
-            conn.commit()
+            self.translator.cursor.execute(
+                "INSERT OR REPLACE INTO translations (word, translation, source) VALUES (?, ?, 'manual')",
+                (word.lower(), translation)
+            )
+            self.translator.conn.commit()
             
             # Update memory cache
             self.translator.word_dict[word.lower()] = translation
             
             # Update status
             if self.db_editor_screen:
-                self.db_editor_screen.ids.status_label.text = f"{action} translation for '{word}'"
+                self.db_editor_screen.ids.status_label.text = f"Updated translation for '{word}'"
                 
             # Reload translations
             self.load_translations()
@@ -2056,10 +1939,8 @@ class RSSApp(App):
             
         try:
             # Delete from database
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("DELETE FROM translations WHERE word = ?", (word.lower(),))
-            conn.commit()
+            self.translator.cursor.execute("DELETE FROM translations WHERE word = ?", (word.lower(),))
+            self.translator.conn.commit()
             
             # Remove from memory cache
             if word.lower() in self.translator.word_dict:
