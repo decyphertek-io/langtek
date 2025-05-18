@@ -16,7 +16,7 @@ Getting Started:
 * This was only tested on Linux.
 * from terminal run:
 ```
-bash main.sh
+bash langtek.sh
 ```
 * This will create a virtual python environment and run the application. 
 

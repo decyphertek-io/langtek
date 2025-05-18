@@ -54,7 +54,7 @@ pip install -r requirements.txt
 
 echo "Running the LangTek Kivy application (main.py)..."
 # --- Run Python app within the same script execution --- 
-python main.py
+python langtek.py
 # -----------------------------------------------------
 
 # --- Cleanup will be handled by the trap --- 
