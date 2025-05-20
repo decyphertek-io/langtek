@@ -1,6 +1,6 @@
 KIVY RSS Reader in DEV
 ---------------------
-This app is built using Kivy , so it can be cross platform. Build once , deploy everywhere. The purpose of this RSS Feed is to learn spanish by reading. The idea is to have a line by line translation. When I use a free API , it is too slow and crashes the app, it does translate. I am working on getting an offline spanish Dictionary Troublebshooting , Work in progress. Expect glitches. 
+This app is built using Kivy , so it can be cross platform. Build once , deploy everywhere. The purpose of this RSS Feed is to learn spanish by reading. The idea is to have a line by line translation. I am working on getting an offline spanish Dictionary Troublebshooting , Work in progress. Expect glitches. 
 
 Issues:
 ------
