@@ -5,10 +5,7 @@ This app is built using Kivy , so it can be cross platform. Build once , deploy 
 Issues:
 ------
 * New DB scheme broke the python script. Working on updating the logic. 
-* Working on cleaning up the Database.
-* Some translators are adding * and Caps to the saved translations.
-* When fixing it and rebuilding the DB, some words not being translated.
-* I am actively fixing these issues and rebuilding the DB, when the DB is built runs smoothly. 
+* Working on building & cleaning up the Database.
 * Please note this is in DEV. 
 
 Getting Started:
