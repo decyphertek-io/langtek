@@ -31,11 +31,8 @@ class TranslationDB:
         # Create table if it doesn't exist
         self.cursor.execute('''
         CREATE TABLE IF NOT EXISTS translations (
-            id INTEGER PRIMARY KEY,
-            word TEXT NOT NULL,
-            translation TEXT NOT NULL,
-            source TEXT DEFAULT 'google',
-            date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            spanish TEXT PRIMARY KEY,
+            english TEXT
         )
         ''')
         
@@ -57,10 +54,10 @@ class TranslationDB:
         result = self.cursor.fetchone()
         return result[0] if result else None
     
-    def save_translation(self, word, translation, source):
+    def save_translation(self, word, translation):
         """Save translation to database."""
         self.cursor.execute(
-            "INSERT OR REPLACE INTO translations (word, translation) VALUES (?, ?)",
+            "INSERT OR REPLACE INTO translations (spanish, english) VALUES (?, ?)",
             (word.lower(), translation)
         )
         self.conn.commit()
@@ -104,7 +101,7 @@ class TranslationDB:
                 
                 # Check if translation is different from the original word
                 if translation and translation.lower() != word.lower():
-                    self.save_translation(word, translation, translator)
+                    self.save_translation(word, translation)
                     print(f"Added: {word} → {translation}")
                     return translation
                 elif translation:

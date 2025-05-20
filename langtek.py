@@ -137,11 +137,8 @@ class TranslationService:
             # Create table if it doesn't exist
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS translations (
-                id INTEGER PRIMARY KEY,
-                word TEXT NOT NULL,
-                translation TEXT NOT NULL,
-                source TEXT DEFAULT 'google',
-                date_added TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                spanish TEXT PRIMARY KEY,
+                english TEXT
             )
             ''')
             
@@ -643,13 +640,13 @@ class TranslationService:
             cursor = conn.cursor()
             
             # Check if word already exists
-            cursor.execute("SELECT word FROM translations WHERE word=?", (word.lower(),))
+            cursor.execute("SELECT spanish FROM translations WHERE spanish=?", (word.lower(),))
             exists = cursor.fetchone()
             
             if not exists:
                 cursor.execute(
-                    "INSERT INTO translations (word, translation, source, created_at) VALUES (?, ?, ?, ?)",
-                    (word.lower(), translation_text, source, datetime.now().isoformat())
+                    "INSERT OR REPLACE INTO translations (spanish, english) VALUES (?, ?)",
+                    (word.lower(), translation_text)
                 )
                 conn.commit()
                 logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {source}")
