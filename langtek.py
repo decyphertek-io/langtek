@@ -143,7 +143,7 @@ class TranslationService:
             ''')
             
             # Create index on word for faster lookups
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_word ON translations(word)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_spanish ON translations(spanish)')
             
             # Commit changes
             conn.commit()
@@ -193,7 +193,7 @@ class TranslationService:
                     # Get thread-local connection
                     db_conn = self._get_db_connection()
                     db_cursor = db_conn.cursor()
-                    db_cursor.execute("SELECT translation FROM translations WHERE word = ?", (word.lower(),))
+                    db_cursor.execute("SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", (word.lower(),))
                     result = db_cursor.fetchone()
                     if result:
                         translation = result[0]
@@ -418,7 +418,7 @@ class TranslationService:
             # Check directly in SQLite translations.db database
             conn = self._get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word_lower,))
+            cursor.execute("SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", (word_lower,))
             result = cursor.fetchone()
             
             if result:
@@ -426,8 +426,8 @@ class TranslationService:
                 source_info = f" [source: {source}]"
                 
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' in translations.db database{source_info}")
-                    print(f"DEBUG: Found '{word}' in translations.db database{source_info}")
+                    logger.debug(f"Found '{word}' in translations.db database")
+                    print(f"DEBUG: Found '{word}' in translations.db database")
                 
                 # Add to memory cache for faster future lookups
                 self.word_dict[word_lower] = {"text": translation, "source": source}
@@ -491,8 +491,8 @@ class TranslationService:
                     conn = self._get_db_connection()
                     cursor = conn.cursor()
                     cursor.execute(
-                        'INSERT OR REPLACE INTO translations (word, translation, source) VALUES (?, ?, ?)',
-                        (word_lower, translation, api_used)
+                        'INSERT OR REPLACE INTO translations (spanish, english) VALUES (?, ?)',
+                        (word_lower, translation)
                     )
                     conn.commit()
                 except Exception as db_error:
@@ -640,7 +640,7 @@ class TranslationService:
             cursor = conn.cursor()
             
             # Check if word already exists
-            cursor.execute("SELECT spanish FROM translations WHERE spanish=?", (word.lower(),))
+            cursor.execute("SELECT spanish FROM translations WHERE spanish=? COLLATE NOCASE", (word.lower(),))
             exists = cursor.fetchone()
             
             if not exists:
@@ -1776,33 +1776,33 @@ class RSSApp(App):
             if search_term:
                 # Search for specific terms
                 cursor.execute(
-                    "SELECT word, translation, source FROM translations WHERE word LIKE ? OR translation LIKE ? ORDER BY word LIMIT 200",
+                    "SELECT spanish, english FROM translations WHERE spanish LIKE ? OR english LIKE ? ORDER BY spanish LIMIT 200",
                     (f"%{search_term}%", f"%{search_term}%")
                 )
             else:
-                # Get recent translations
+                # Get recent translations (no date_added column, using english for sorting)
                 cursor.execute(
-                    "SELECT word, translation, source FROM translations ORDER BY date_added DESC LIMIT 100"
+                    "SELECT spanish, english FROM translations ORDER BY english DESC LIMIT 100"
                 )
                 
             translations = cursor.fetchall()
             
-            for word, translation, source in translations:
+            for spanish, english in translations:
                 # Create a button for the list
-                item = TranslationButton(text=word, word=word)
+                item = TranslationButton(text=spanish, word=spanish)
                 self.db_editor_screen.ids.translation_list.add_widget(item)
                 
                 # Add to details grid
-                word_label = Label(
-                    text=word, 
+                spanish_label = Label(
+                    text=spanish, 
                     color=(0, 0, 0, 1),
                     size_hint_y=None,
                     height=dp(30),
                     text_size=(None, None),
                     halign='left'
                 )
-                translation_label = Label(
-                    text=translation, 
+                english_label = Label(
+                    text=english, 
                     color=(0, 0, 0, 1),
                     size_hint_y=None,
                     height=dp(30),
@@ -1818,8 +1818,8 @@ class RSSApp(App):
                     halign='left'
                 )
                 
-                self.db_editor_screen.ids.translation_details.add_widget(word_label)
-                self.db_editor_screen.ids.translation_details.add_widget(translation_label)
+                self.db_editor_screen.ids.translation_details.add_widget(spanish_label)
+                self.db_editor_screen.ids.translation_details.add_widget(english_label)
                 self.db_editor_screen.ids.translation_details.add_widget(source_label)
                 
             # Update status
@@ -1844,20 +1844,20 @@ class RSSApp(App):
             # Get current translation data from DB
             conn = self.translator._get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT translation, source FROM translations WHERE word = ?", (word.lower(),))
+            cursor.execute("SELECT english FROM translations WHERE spanish = ?", (word.lower(),))
             result = cursor.fetchone()
             
             if not result:
                 return
                 
-            translation, source = result
+            english, source = result
             
             # Update input fields
             self.db_editor_screen.ids.word_input.text = word
-            self.db_editor_screen.ids.translation_input.text = translation
+            self.db_editor_screen.ids.translation_input.text = english
             
             # Store selection
-            self.selected_translation = (word, translation, source)
+            self.selected_translation = (word, english)
             
             # Update status
             self.db_editor_screen.ids.status_label.text = f"Selected: {word}"
@@ -1879,20 +1879,92 @@ class RSSApp(App):
             cursor = conn.cursor()
             
             # Check if word exists
-            cursor.execute("SELECT id FROM translations WHERE word = ?", (word.lower(),))
+            cursor.execute("SELECT spanish FROM translations WHERE spanish = ?", (word.lower(),))
             result = cursor.fetchone()
             
             if result:
                 # Update existing translation
                 cursor.execute(
-                    "UPDATE translations SET translation = ?, source = 'manual', date_added = CURRENT_TIMESTAMP WHERE word = ?",
+                    "UPDATE translations SET english = ? WHERE spanish = ?",
                     (translation, word.lower())
                 )
                 action = "Updated"
             else:
                 # Add new translation
                 cursor.execute(
-                    "INSERT OR IGNORE INTO translations (word, translation, source) VALUES (?, ?, 'manual')",
+                    "INSERT OR IGNORE INTO translations (spanish, english) VALUES (?, ?)",
+                    (word.lower(), translation)
+                )
+                action = "Added"
+                
+            conn.commit()
+            
+            # Update memory cache
+            self.translator.word_dict[word.lower()] = translation
+            
+            # Update status
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"{action} translation for '{word}'"
+                
+            # Reload translations
+            self.load_translations()
+            
+        except Exception as e:
+            logger.error(f"Error adding/updating translation: {e}")
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+    
+    def delete_translation(self, word):
+        """Delete a translation from the database"""
+        if not word:
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = "Error: No word specified"
+            return
+            
+        try:
+            english, source = result
+            
+            # Update input fields
+            self.db_editor_screen.ids.word_input.text = word
+            self.db_editor_screen.ids.translation_input.text = english
+            
+            # Store selection
+            self.selected_translation = (word, english)
+            
+            # Update status
+            self.db_editor_screen.ids.status_label.text = f"Selected: {word}"
+        except Exception as e:
+            logger.error(f"Error selecting translation: {e}")
+            if hasattr(self.db_editor_screen, 'status_label'):
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+    
+    def add_update_translation(self, word, translation):
+        """Add or update a translation in the database"""
+        if not word or not translation:
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = "Error: Word and translation required"
+            return
+            
+        try:
+            # Save to database
+            conn = self.translator._get_db_connection()
+            cursor = conn.cursor()
+            
+            # Check if word exists
+            cursor.execute("SELECT spanish FROM translations WHERE spanish = ?", (word.lower(),))
+            result = cursor.fetchone()
+            
+            if result:
+                # Update existing translation
+                cursor.execute(
+                    "UPDATE translations SET english = ? WHERE spanish = ?",
+                    (translation, word.lower())
+                )
+                action = "Updated"
+            else:
+                # Add new translation
+                cursor.execute(
+                    "INSERT OR IGNORE INTO translations (spanish, english) VALUES (?, ?)",
                     (word.lower(), translation)
                 )
                 action = "Added"
@@ -1925,7 +1997,7 @@ class RSSApp(App):
             # Delete from database
             conn = self.translator._get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM translations WHERE word = ?", (word.lower(),))
+            cursor.execute("SELECT spanish FROM translations WHERE spanish = ?", (word.lower(),))
             conn.commit()
             
             # Remove from memory cache
@@ -1935,6 +2007,10 @@ class RSSApp(App):
             # Update status
             if self.db_editor_screen:
                 self.db_editor_screen.ids.status_label.text = f"Deleted translation for '{word}'"
+        except Exception as e:
+            logger.error(f"Error deleting translation: {e}")
+            if self.db_editor_screen:
+                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
                 
             # Reload translations
             self.load_translations()
