@@ -422,15 +422,15 @@ class TranslationService:
             result = cursor.fetchone()
             
             if result:
-                translation, source = result
-                source_info = f" [source: {source}]"
+                translation = result[0]
+                source_info = " [source: database]"
                 
                 if self.debug_mode:
                     logger.debug(f"Found '{word}' in translations.db database")
                     print(f"DEBUG: Found '{word}' in translations.db database")
                 
                 # Add to memory cache for faster future lookups
-                self.word_dict[word_lower] = {"text": translation, "source": source}
+                self.word_dict[word_lower] = {"text": translation, "source": "database"}
                 return translation
             
             # If not found locally, check if we're under any API rate limit
@@ -633,8 +633,8 @@ class TranslationService:
             
             # Extract the text from the translation if it's a dictionary
             translation_text = translation["text"] if isinstance(translation, dict) else translation
-            # Get the source from the dictionary or use default
-            source = translation.get("api", "API") if isinstance(translation, dict) else "API"
+            # Get the API name if available
+            api_name = translation.get("api", "API") if isinstance(translation, dict) else "API"
             
             conn = self._get_db_connection()
             cursor = conn.cursor()
@@ -649,7 +649,7 @@ class TranslationService:
                     (word.lower(), translation_text)
                 )
                 conn.commit()
-                logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {source}")
+                logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {api_name}")
             
         except Exception as e:
             logger.error(f"[Queue       ] Error saving to database: {e}")
@@ -912,27 +912,19 @@ KV = '''
                                 text_size: self.width, None
                                 halign: 'left'
                                 markup: True
-                        TextInput:
+                        Label:
                                 id: article_content
                                 text: root.article_content
                                 color: 0, 0, 0, 1
                                 size_hint_y: None
-                                height: max(self.minimum_height, dp(400))
-                                readonly: True
-                                background_normal: ''
-                                background_active: ''
-                                background_color: 0.95, 0.95, 0.95, 0
+                                height: self.texture_size[1]
                                 text_size: self.width, None
                                 font_size: '16sp'
                                 line_height: 1.5
                                 markup: True
-                        Button:
-                                text: 'Read Full Article'
-                                size_hint_y: None
-                                height: dp(50)
-                                background_color: 0.2, 0.5, 0, 1
-                                color: 1, 1, 1, 1
-                                on_release: app.open_link(root.article_link)
+                                valign: 'top'
+                                halign: 'left'
+
 <MenuPopup>:
         size_hint: 0.8, None
         height: content.height
@@ -1375,23 +1367,16 @@ class RSSApp(App):
         link = article.get('link', '#')
         published = article.get('published', '')
         
-        # Determine if this is a Clarin article by checking the URL
-        is_clarin = 'clarin.com' in link.lower()
-        
-        if is_clarin:
-            # For Clarin articles, we need to fetch the full content from the link
-            try:
-                logger.debug(f"Fetching full content for Clarin article: {link}")
-                content = self._fetch_full_article_content(link)
-                if not content:
-                    # Fallback to summary if content fetch fails
-                    content = article.get('summary', 'No content available')
-                    logger.warning(f"Failed to fetch full content, using summary for: {link}")
-            except Exception as e:
-                logger.error(f"Error fetching full Clarin article: {e}")
+        # Always try to fetch full article content first
+        try:
+            logger.debug(f"Fetching full content for article: {link}")
+            content = self._fetch_full_article_content(link)
+            if not content:
+                # Fallback to summary if content fetch fails
                 content = article.get('summary', 'No content available')
-        else:
-            # For non-Clarin articles, use the summary as before
+                logger.warning(f"Failed to fetch full content, using summary for: {link}")
+        except Exception as e:
+            logger.error(f"Error fetching full article: {e}")
             content = article.get('summary', 'No content available')
         
         clean_title = RSSParser.clean_html(title)
@@ -1809,18 +1794,9 @@ class RSSApp(App):
                     text_size=(None, None),
                     halign='left'
                 )
-                source_label = Label(
-                    text=source, 
-                    color=(0, 0, 0, 1),
-                    size_hint_y=None,
-                    height=dp(30),
-                    text_size=(None, None),
-                    halign='left'
-                )
                 
                 self.db_editor_screen.ids.translation_details.add_widget(spanish_label)
                 self.db_editor_screen.ids.translation_details.add_widget(english_label)
-                self.db_editor_screen.ids.translation_details.add_widget(source_label)
                 
             # Update status
             if hasattr(self.db_editor_screen.ids, 'status_label'):
@@ -1850,7 +1826,7 @@ class RSSApp(App):
             if not result:
                 return
                 
-            english, source = result
+            english = result[0]
             
             # Update input fields
             self.db_editor_screen.ids.word_input.text = word
@@ -1864,78 +1840,6 @@ class RSSApp(App):
         except Exception as e:
             logger.error(f"Error selecting translation: {e}")
             if hasattr(self.db_editor_screen.ids, 'status_label'):
-                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
-    
-    def add_update_translation(self, word, translation):
-        """Add or update a translation in the database"""
-        if not word or not translation:
-            if self.db_editor_screen:
-                self.db_editor_screen.ids.status_label.text = "Error: Word and translation required"
-            return
-            
-        try:
-            # Save to database
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
-            
-            # Check if word exists
-            cursor.execute("SELECT spanish FROM translations WHERE spanish = ?", (word.lower(),))
-            result = cursor.fetchone()
-            
-            if result:
-                # Update existing translation
-                cursor.execute(
-                    "UPDATE translations SET english = ? WHERE spanish = ?",
-                    (translation, word.lower())
-                )
-                action = "Updated"
-            else:
-                # Add new translation
-                cursor.execute(
-                    "INSERT OR IGNORE INTO translations (spanish, english) VALUES (?, ?)",
-                    (word.lower(), translation)
-                )
-                action = "Added"
-                
-            conn.commit()
-            
-            # Update memory cache
-            self.translator.word_dict[word.lower()] = translation
-            
-            # Update status
-            if self.db_editor_screen:
-                self.db_editor_screen.ids.status_label.text = f"{action} translation for '{word}'"
-                
-            # Reload translations
-            self.load_translations()
-            
-        except Exception as e:
-            logger.error(f"Error adding/updating translation: {e}")
-            if self.db_editor_screen:
-                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
-    
-    def delete_translation(self, word):
-        """Delete a translation from the database"""
-        if not word:
-            if self.db_editor_screen:
-                self.db_editor_screen.ids.status_label.text = "Error: No word specified"
-            return
-            
-        try:
-            english, source = result
-            
-            # Update input fields
-            self.db_editor_screen.ids.word_input.text = word
-            self.db_editor_screen.ids.translation_input.text = english
-            
-            # Store selection
-            self.selected_translation = (word, english)
-            
-            # Update status
-            self.db_editor_screen.ids.status_label.text = f"Selected: {word}"
-        except Exception as e:
-            logger.error(f"Error selecting translation: {e}")
-            if hasattr(self.db_editor_screen, 'status_label'):
                 self.db_editor_screen.ids.status_label.text = f"Error: {e}"
     
     def add_update_translation(self, word, translation):
@@ -1997,7 +1901,7 @@ class RSSApp(App):
             # Delete from database
             conn = self.translator._get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT spanish FROM translations WHERE spanish = ?", (word.lower(),))
+            cursor.execute("DELETE FROM translations WHERE spanish = ?", (word.lower(),))
             conn.commit()
             
             # Remove from memory cache
@@ -2007,10 +1911,6 @@ class RSSApp(App):
             # Update status
             if self.db_editor_screen:
                 self.db_editor_screen.ids.status_label.text = f"Deleted translation for '{word}'"
-        except Exception as e:
-            logger.error(f"Error deleting translation: {e}")
-            if self.db_editor_screen:
-                self.db_editor_screen.ids.status_label.text = f"Error: {e}"
                 
             # Reload translations
             self.load_translations()

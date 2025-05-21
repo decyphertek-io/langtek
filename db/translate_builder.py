@@ -36,8 +36,8 @@ class TranslationDB:
         )
         ''')
         
-        # Create index on word for faster lookups
-        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_word ON translations(word)')
+        # Create index on spanish for faster lookups
+        self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_spanish ON translations(spanish)')
         
         # Commit changes
         self.conn.commit()
@@ -50,7 +50,7 @@ class TranslationDB:
     
     def get_translation(self, word):
         """Get translation from database if it exists."""
-        self.cursor.execute("SELECT translation FROM translations WHERE word = ? COLLATE NOCASE", (word,))
+        self.cursor.execute("SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", (word,))
         result = self.cursor.fetchone()
         return result[0] if result else None
     
