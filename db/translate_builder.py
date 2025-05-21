@@ -17,7 +17,7 @@ class TranslationDB:
         self.conn = None
         self.cursor = None
         self.translators = [
-            'lingvanex', 'argos', 'apertium', 'modernmt', 'deepl', 'google'
+            'lingvanex', 'lingva_direct'
         ]
         self.init_db()
         self.last_processed = self.get_last_processed()
@@ -89,18 +89,33 @@ class TranslationDB:
                 elif translator == 'lingvanex':
                     # Lingvanex uses specific format
                     translation = tss.lingvanex(word, from_language='es_ES', to_language='en_US')
-                elif translator == 'argos':
-                    # Argos uses 2-letter codes
-                    # Using a different endpoint that might be more reliable
-                    translation = tss.argos(word, from_language='es', to_language='en', api_url='https://api-free.deepl.com/v2/translate')
-                elif translator == 'apertium':
-                    # Apertium uses 3-letter codes
-                    translation = tss.apertium(word, from_language='spa', to_language='eng')
+                elif translator == 'lingva_direct':
+                    # Direct call to Lingva Translate API
+                    try:
+                        import requests
+                        url = f"https://lingva.ml/api/v1/es/en/{word}"
+                        response = requests.get(url, timeout=5)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if 'translation' in data:
+                                translation = data['translation'].strip()
+                            else:
+                                translation = None
+                        else:
+                            translation = None
+                    except Exception as e:
+                        print(f"Error with direct Lingva API: {e}")
+                        translation = None
                 else:
                     continue
                 
-                # Check if translation is different from the original word
+                # Check if translation is valid (not emoji and different from original)
                 if translation and translation.lower() != word.lower():
+                    # Check for emojis (Unicode ranges for emojis)
+                    if any(ord(char) >= 0x1F000 for char in translation):
+                        print(f"Warning: {translator} returned emoji for {word}, skipping")
+                        continue
+                    
                     self.save_translation(word, translation)
                     print(f"Added: {word} → {translation}")
                     return translation
