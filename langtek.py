@@ -88,7 +88,7 @@ class TranslationService:
         logger.info("Initializing TranslationService with multiple APIs")
         
         self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
-        self.db_file = os.path.join(self.db_dir, 'translations.db')
+        self.db_file = os.path.join(self.db_dir, 'es-en.sqlite3')
         
         self.thread_local = threading.local()
         
@@ -134,7 +134,7 @@ class TranslationService:
             conn = self._get_db_connection()
             cursor = conn.cursor()
             
-            # Create table if it doesn't exist
+            # Create table if it doesn't exist - match es-en.sqlite3 schema
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS translations (
                 spanish TEXT PRIMARY KEY,
@@ -1140,7 +1140,7 @@ KV = '''
 
 class ArticleCard(BoxLayout):
     article_title = StringProperty('')
-    article_title_translation = StringProperty('')
+    article_title_translation = StringProperty('')  
     feed_title = StringProperty('')
     feed_url = StringProperty('')
     thumbnail_url = StringProperty('')
@@ -1310,47 +1310,81 @@ class RSSApp(App):
             self.rss_layout.ids.feed_grid.add_widget(placeholder)
             return
         
+        # First collect all entries from all feeds
+        all_entries = []
         for feed_data in self.feeds:
-            threading.Thread(target=self.fetch_feed, args=(feed_data,), daemon=True).start()
+            feed = RSSParser.parse_feed(feed_data['url'])
+            if feed:
+                entries = RSSParser.get_entries(feed)
+                if entries:
+                    for entry in entries[:10]:
+                        all_entries.append((entry, feed_data))
+        
+        # Sort by date (newest first)
+        all_entries.sort(key=lambda x: x[0].get('published_parsed', (0,)), reverse=True)
+        
+        # Load all entries with placeholder translations
+        for entry, feed_data in all_entries:
+            title = entry.get('title', 'No Title')
+            clean_title = RSSParser.clean_html(title)
+            
+            # Create stacked title with [translating...] placeholder
+            stacked_title = f"{clean_title}\n[i][color=#777777][translating...][/color][/i]"
+            
+            # Get image URL
+            image_url = RSSParser.get_image_url(entry)
+            if not image_url:
+                image_url = 'https://via.placeholder.com/300x200'
+            
+            # Add card with placeholder translation
+            self.add_article_card(entry, stacked_title, image_url, feed_data['title'], feed_data['url'])
+        
+        # Then start translations in a separate thread
+        threading.Thread(target=self._translate_all_titles, args=(all_entries,), daemon=True).start()
     
-    def fetch_feed(self, feed_data):
-        feed = RSSParser.parse_feed(feed_data['url'])
-        if feed:
-            entries = RSSParser.get_entries(feed)
-            if entries:
-                for entry in entries[:10]:
-                    title = entry.get('title', 'No Title')
-                    clean_title = RSSParser.clean_html(title)
-                    # Translate the title (word-for-word)
-                    title_translation = self.translator.word_for_word_line(clean_title)
-                    image_url = RSSParser.get_image_url(entry)
-                    if not image_url:
-                        image_url = 'https://via.placeholder.com/300x200'
-                    Clock.schedule_once(lambda dt, e=entry, t=clean_title, tt=title_translation, i=image_url, f=feed_data['title']: 
-                                         self.add_article_card(e, t, tt, i, f, feed_data['url']), 0)
+    def _translate_all_titles(self, entries):
+        """Translate all titles after cards are loaded"""
+        for entry, feed_data in entries:
+            title = entry.get('title', 'No Title')
+            clean_title = RSSParser.clean_html(title)
+            
+            # Find the card for this entry
+            card = None
+            for child in self.rss_layout.ids.feed_grid.children[:]:
+                if isinstance(child, ArticleCard) and child.article_link == entry.get('link', '#'):
+                    card = child
+                    break
+            
+            if card:
+                # Translate the title
+                english_line = self.translator.word_for_word_line(clean_title)
+                stacked_title = f"{clean_title}\n[i][color=#777777]{english_line}[/color][/i]"
+                
+                # Update on the main thread
+                Clock.schedule_once(lambda dt, c=card, st=stacked_title: setattr(c, 'article_title', st), 0)
     
-    def add_article_card(self, article, title, title_translation, image_url, feed_title, feed_url):
+    def _translate_article_title(self, article, title):
+        """Translate article title and update the card"""
+        # This method is no longer used - translations are now done in _translate_all_titles
+        pass
+    
+    def add_article_card(self, article, title, image_url, feed_title, feed_url):
         # Check if card already exists
         for child in self.rss_layout.ids.feed_grid.children[:]:
-            if (isinstance(child, ArticleCard) and 
-                child.article_link == article.get('link', '#')):
+            if isinstance(child, ArticleCard) and child.article_link == article.get('link', '#'):
                 # Update existing card instead of creating a duplicate
-                english_line = self.translator.word_for_word_line(title)
-                stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
-                child.article_title = stacked_title
+                child.article_title = title
                 child.thumbnail_url = image_url
                 return
                 
-        # Stack Spanish and English translation in the title label, English in gray italics
-        english_line = self.translator.word_for_word_line(title)
-        stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
+        # Create card with title and image
         card = ArticleCard(
-            article_title=stacked_title,
-            article_title_translation='',
+            article_title=title,
             feed_title=feed_title,
             feed_url=feed_url,
             thumbnail_url=image_url,
             article_link=article.get('link', '#'),
+            article_content=article.get('summary', ''),
             article=article
         )
         card.bind(on_touch_down=self.on_card_touched)
