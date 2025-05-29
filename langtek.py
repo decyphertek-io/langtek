@@ -75,6 +75,12 @@ class TranslationService:
                 'lock': threading.Lock()
             },
             {
+                'name': 'SimplyTranslate',
+                'max_per_minute': 15,
+                'timestamps': [],
+                'lock': threading.Lock()
+            },
+            {
                 'name': 'DeepL',
                 'max_per_minute': 10,
                 'timestamps': [],
@@ -114,10 +120,10 @@ class TranslationService:
                 isolation_level=None  # Enable autocommit mode
             )
             
-            # Enable WAL mode for better concurrency
+            # Use direct writes instead of WAL mode
             cursor = self.thread_local.db_conn.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA journal_mode=DELETE")  # Use standard rollback journal
+            cursor.execute("PRAGMA synchronous=FULL")  # Full synchronization
             cursor.execute("PRAGMA busy_timeout=30000")  # 30 seconds
             
             logger.debug(f"Created new SQLite connection for thread {threading.get_ident()}")
@@ -260,6 +266,8 @@ class TranslationService:
                     translation = self._translate_libretranslate(word, from_lang, to_lang)
                 elif api_name == 'Lingva':
                     translation = self._translate_lingva(word, from_lang, to_lang)
+                elif api_name == 'SimplyTranslate':
+                    translation = self._translate_simplytranslate(word, from_lang, to_lang)
                 elif api_name == 'DeepL':
                     translation = self._translate_deepl(word, from_lang, to_lang)
                 
@@ -284,42 +292,33 @@ class TranslationService:
         
         # List of LibreTranslate endpoints in order of preference
         endpoints = [
-            "https://lingva.ml/api/v1",  # This one seems to be working well based on logs
-            "https://libretranslate.de/translate",
-            "https://libretranslate.com/translate"
+            "https://translate.terraprint.co/translate",
+            "https://lt.vern.cc/translate",
+            "https://translate.fedilab.app/translate",
+            "https://translate.astian.org/translate"
         ]
         
         # Remove translate.argosopentech.com since it consistently fails with name resolution errors
         
         for endpoint in endpoints:
             try:
-                if "lingva.ml" in endpoint:
-                    # Lingva has a different API format
-                    url = f"{endpoint}/{from_lang}/{to_lang}/{urllib.parse.quote(word)}"
-                    response = requests.get(url, timeout=5)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        if 'translation' in data:
-                            return data['translation']
+                # Standard LibreTranslate API format
+                headers = {'Content-Type': 'application/json'}
+                data = {
+                    'q': word,
+                    'source': from_lang,
+                    'target': to_lang,
+                    'format': 'text'
+                }
+                
+                response = requests.post(endpoint, headers=headers, json=data, timeout=5)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if 'translatedText' in result:
+                        return result['translatedText']
                 else:
-                    # Standard LibreTranslate API format
-                    headers = {'Content-Type': 'application/json'}
-                    data = {
-                        'q': word,
-                        'source': from_lang,
-                        'target': to_lang,
-                        'format': 'text'
-                    }
-                    
-                    response = requests.post(endpoint, headers=headers, json=data, timeout=5)
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        if 'translatedText' in result:
-                            return result['translatedText']
-                    else:
-                        logger.debug(f"[LibreTranslate API error] {response.status_code} from {endpoint}")
+                    logger.debug(f"[LibreTranslate API error] {response.status_code} from {endpoint}")
                     
             except Exception as e:
                 logger.error(f"Error with LibreTranslate API ({endpoint}): {e}")
@@ -329,33 +328,88 @@ class TranslationService:
     
     def _translate_lingva(self, word, from_lang='es', to_lang='en'):
         """Translate using Lingva Translate API (unofficial Google Translate API)"""
-        url = f"https://lingva.ml/api/v1/{from_lang}/{to_lang}/{word}"
+        # Try multiple Lingva instances in order of reliability
+        endpoints = [
+            "https://lingva.garudalinux.org/api/v1",
+            "https://lingva.pussthecat.org/api/v1",
+            "https://translate.plausibility.cloud/api/v1"
+        ]
         
-        response = requests.get(url, timeout=5)
-        data = response.json()
+        for endpoint in endpoints:
+            try:
+                url = f"{endpoint}/{from_lang}/{to_lang}/{urllib.parse.quote(word)}"
+                response = requests.get(url, timeout=5)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if 'translation' in data:
+                        return data['translation'].strip()
+            except Exception as e:
+                logger.debug(f"Error with Lingva endpoint {endpoint}: {e}")
+                continue
         
-        if 'translation' in data:
-            return data['translation'].strip()
         return None
     
+    def _translate_simplytranslate(self, word, from_lang='es', to_lang='en'):
+        """Translate using SimplyTranslate API (no API key required)"""
+        # Try multiple SimplyTranslate instances
+        endpoints = [
+            "https://simplytranslate.org",
+            "https://st.tokhmi.xyz",
+            "https://translate.josias.dev"
+        ]
+        
+        for endpoint in endpoints:
+            try:
+                url = f"{endpoint}/api/translate"
+                
+                params = {
+                    'engine': 'google',  # Use Google as the backend engine
+                    'from': from_lang,
+                    'to': to_lang,
+                    'text': word
+                }
+                
+                response = requests.get(url, params=params, timeout=5)
+                
+                if response.status_code == 200:
+                    try:
+                        data = response.json()
+                        if 'translation' in data:
+                            return data['translation'].strip()
+                    except Exception as e:
+                        logger.debug(f"Error parsing SimplyTranslate response: {e}")
+                        continue
+            except Exception as e:
+                logger.debug(f"Error with SimplyTranslate endpoint {endpoint}: {e}")
+                continue
+        
+        return None
+        
     def _translate_deepl(self, word, from_lang='es', to_lang='en'):
         """Translate using DeepL API (free tier)"""
-        # Get API key from https://www.deepl.com/pro#developer
-        api_key = "YOUR_DEEPL_API_KEY"  # Free tier available
         url = "https://api-free.deepl.com/v2/translate"
         
-        params = {
-            "auth_key": api_key,
-            "text": word,
-            "source_lang": from_lang.upper(),
-            "target_lang": to_lang.upper()
+        # DeepL requires an API key - this is a placeholder for the API key
+        # In a real app, this would be securely stored and retrieved
+        headers = {
+            'Authorization': 'DeepL-Auth-Key YOUR_API_KEY',
+            'Content-Type': 'application/json',
         }
         
-        response = requests.post(url, data=params, timeout=5)
-        data = response.json()
+        data = {
+            'text': [word],
+            'source_lang': from_lang.upper(),
+            'target_lang': to_lang.upper(),
+        }
         
-        if 'translations' in data and len(data['translations']) > 0:
-            return data['translations'][0]['text'].strip()
+        response = requests.post(url, headers=headers, json=data, timeout=5)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'translations' in result and len(result['translations']) > 0:
+                return result['translations'][0]['text']
+        
         return None
     
     def _check_pending_translations(self):
