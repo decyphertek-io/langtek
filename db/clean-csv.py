@@ -1,5 +1,6 @@
 import csv
 from unicodedata import normalize, category
+import re
 
 def has_numbers(input_string):
     return any(char.isdigit() for char in input_string)
@@ -21,29 +22,38 @@ def remove_accents(input_str):
     # Remove all combining characters (accents)
     return ''.join(c for c in nfkd if category(c) != 'Mn')
 
-input_file = 'translations.csv'
-output_file = 'cleaned.csv'
+def clean_text(text):
+    # Remove parentheses and their contents
+    text = re.sub(r'\([^)]*\)', '', text).strip()
+    # Remove numbers
+    text = re.sub(r'\d+', '', text).strip()
+    # Remove commas and other unwanted characters
+    text = re.sub(r'[^\w\s]', '', text).strip()
+    return text
 
-with open(input_file, newline='', encoding='utf-8') as infile, \
-     open(output_file, 'w', newline='', encoding='utf-8') as outfile:
-    
+input_file = 'es-en.csv'
+output_file = 'cleaned_es-en.csv'
+
+# Read the CSV file
+with open(input_file, 'r', newline='', encoding='utf-8') as infile:
     reader = csv.reader(infile)
+    rows = list(reader)
+
+# Clean and sort the rows
+cleaned_rows = []
+for row in rows:
+    # Clean the Spanish and English columns
+    spanish = clean_text(row[0])
+    english = clean_text(row[1])
+    cleaned_rows.append([spanish, english])
+
+# Sort rows by the Spanish column (first column) after removing accents
+cleaned_rows.sort(key=lambda row: remove_accents(row[0].lower()))  # Normalize accents for sorting
+
+# Write the sorted rows to the output file
+with open(output_file, 'w', newline='', encoding='utf-8') as outfile:
     writer = csv.writer(outfile)
-    
-    # Process all rows first
-    processed_rows = []
-    for row in reader:
-        # Skip rows with numbers in either column
-        if not has_numbers(row[0]) and not has_numbers(row[1]):
-            # Lowercase all columns
-            processed_rows.append([col.strip().lower() for col in row])
-    
-    # Remove duplicates
-    unique_rows = remove_duplicates(processed_rows)
-    
-    # Sort by Spanish word, ignoring accents
-    sorted_rows = sorted(unique_rows, key=lambda x: remove_accents(x[0]))
-    
-    # Write the sorted rows
-    for row in sorted_rows:
+    for row in cleaned_rows:
         writer.writerow(row)
+
+print(f"Cleaned and sorted CSV saved to {output_file}")
