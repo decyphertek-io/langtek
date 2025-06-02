@@ -55,6 +55,16 @@ class TranslationService:
         self.debug_mode = True
         self.used_dictionary = "Translation APIs + SQLite"
         
+        # Database setup first
+        self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
+        self.db_file = os.path.join(self.db_dir, 'es-en.sqlite3')
+        self.conn = None
+        self.db_lock = threading.Lock()
+        
+        # Initialize database first
+        self.init_database()
+        
+        # Then setup translation queue
         self.translation_queue = queue.Queue()
         self.queue_lock = threading.Lock()
         self.translation_thread = threading.Thread(target=self._process_translation_queue, daemon=True)
@@ -75,12 +85,6 @@ class TranslationService:
                 'lock': threading.Lock()
             },
             {
-                'name': 'SimplyTranslate',
-                'max_per_minute': 15,
-                'timestamps': [],
-                'lock': threading.Lock()
-            },
-            {
                 'name': 'DeepL',
                 'max_per_minute': 10,
                 'timestamps': [],
@@ -91,76 +95,99 @@ class TranslationService:
         self.pending_translations = {}
         self.refresh_callback = None
         
-        logger.info("Initializing TranslationService with multiple APIs")
+        logger.info("Initializing TranslationService with database priority")
+        print("DEBUG: Initializing TranslationService with database priority")
         
-        self.db_dir = os.path.join(os.path.dirname(__file__), 'db')
-        self.db_file = os.path.join(self.db_dir, 'es-en.sqlite3')
-        
-        self.thread_local = threading.local()
-        
-        self._get_db_connection()
-        self.init_database()
-        
+        # Start translation thread after database is ready
         self.translation_thread.start()
     
     def set_refresh_callback(self, callback):
         """Set a function to call when pending translations are completed"""
         self.refresh_callback = callback
         
-    def _get_db_connection(self):
-        """Get a thread-local database connection with better locking"""
-        if not hasattr(self.thread_local, 'db_conn'):
-            # Create db directory if it doesn't exist
-            os.makedirs(self.db_dir, exist_ok=True)
-            
-            # Create a new connection for this thread with timeout
-            self.thread_local.db_conn = sqlite3.connect(
-                self.db_file, 
-                timeout=30.0,  # Wait up to 30 seconds for lock to clear
-                isolation_level=None  # Enable autocommit mode
-            )
-            
-            # Use direct writes instead of WAL mode
-            cursor = self.thread_local.db_conn.cursor()
-            cursor.execute("PRAGMA journal_mode=DELETE")  # Use standard rollback journal
-            cursor.execute("PRAGMA synchronous=FULL")  # Full synchronization
-            cursor.execute("PRAGMA busy_timeout=30000")  # 30 seconds
-            
-            logger.debug(f"Created new SQLite connection for thread {threading.get_ident()}")
-        
-        return self.thread_local.db_conn
-        
     def init_database(self):
         """Initialize the SQLite database for translations"""
+        print("DEBUG: Starting database initialization...")
         try:
-            # Create directory if it doesn't exist
             os.makedirs(self.db_dir, exist_ok=True)
+            print(f"DEBUG: Database directory created/verified: {self.db_dir}")
             
-            # Connect to the database (using thread-local connection)
-            conn = self._get_db_connection()
-            cursor = conn.cursor()
+            # Connect with WAL mode and thread-safe settings
+            self.conn = sqlite3.connect(
+                self.db_file, 
+                check_same_thread=False,
+                timeout=10.0
+            )
+            print(f"DEBUG: Connected to database: {self.db_file}")
             
-            # Create table if it doesn't exist - match es-en.sqlite3 schema
-            cursor.execute('''
+            # Set WAL mode
+            self.conn.execute("PRAGMA journal_mode=WAL;")
+            self.conn.commit()
+            print("DEBUG: WAL mode set")
+            
+            # Create table if not exists
+            with self.conn:
+                self.conn.execute('''
             CREATE TABLE IF NOT EXISTS translations (
                 spanish TEXT PRIMARY KEY,
                 english TEXT
             )
             ''')
+                self.conn.execute('CREATE INDEX IF NOT EXISTS idx_spanish ON translations(spanish)')
+            print("DEBUG: Tables and indexes created")
             
-            # Create index on word for faster lookups
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_spanish ON translations(spanish)')
+            # Test database connection by counting records
+            cursor = self.conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM translations")
+            count = cursor.fetchone()[0]
+            cursor.close()
             
-            # Commit changes
-            conn.commit()
+            logger.info(f"Database initialized at {self.db_file} with {count} translations")
+            print(f"DEBUG: Database initialized at {self.db_file} with {count} translations")
+            print("DEBUG: Database initialization completed successfully")
             
-            logger.info(f"Database initialized at {self.db_file}")
-            print(f"Database initialized at {self.db_file}")
+            # Test a simple query to verify connection works
+            test_result = self._execute_query("SELECT spanish FROM translations LIMIT 1")
+            if test_result is not None:
+                print("DEBUG: Database connection test passed")
+            else:
+                print("ERROR: Database connection test failed")
             
         except Exception as e:
             logger.error(f"Error initializing database: {e}")
-            print(f"Error initializing database: {e}")
+            print(f"ERROR: Database initialization failed: {e}")
+            print(f"ERROR: Database file path: {self.db_file}")
+            print(f"ERROR: Database directory: {self.db_dir}")
             self.translator_available = False
+            import traceback
+            traceback.print_exc()
+    
+    def _execute_query(self, query, params=()):
+        """Execute a query with thread-safe cursor management"""
+        if not self.conn:
+            print("ERROR: No database connection available")
+            return None
+            
+        try:
+            with self.db_lock:
+                cursor = self.conn.cursor()
+                try:
+                    cursor.execute(query, params)
+                    if query.strip().upper().startswith("SELECT"):
+                        result = cursor.fetchall()
+                    else:
+                        result = None
+                    self.conn.commit()
+                    return result
+                finally:
+                    cursor.close()
+        except Exception as e:
+            print(f"ERROR: Database query failed: {e}")
+            print(f"ERROR: Query: {query}")
+            print(f"ERROR: Params: {params}")
+            import traceback
+            traceback.print_exc()
+            return None
             
     def _process_translation_queue(self):
         """Background thread that processes translation requests in the queue"""
@@ -176,6 +203,23 @@ class TranslationService:
                     
                 word, from_lang, to_lang, callback = request
                 
+                # Check database first
+                translation = None
+                try:
+                    # Use thread-safe database access
+                    result = self._execute_query(
+                        "SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", 
+                        (word.lower(),)
+                    )
+                    if result:
+                        translation = result[0][0]
+                        logger.debug(f"Queue: Found '{word}' in database")
+                except Exception as db_error:
+                    logger.error(f"Queue: Database error: {db_error}")
+                
+                # If not in database, perform online translation
+                if not translation:
+                    try:
                 # Rate limiting - ensure we don't exceed max_requests_per_minute
                 with self.queue_lock:
                     current_time = time.time()
@@ -193,23 +237,6 @@ class TranslationService:
                     # Add the current timestamp
                     self.request_timestamps.append(time.time())
                 
-                # Check database first
-                translation = None
-                try:
-                    # Get thread-local connection
-                    db_conn = self._get_db_connection()
-                    db_cursor = db_conn.cursor()
-                    db_cursor.execute("SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", (word.lower(),))
-                    result = db_cursor.fetchone()
-                    if result:
-                        translation = result[0]
-                        logger.debug(f"Queue: Found '{word}' in database")
-                except Exception as db_error:
-                    logger.error(f"Queue: Database error: {db_error}")
-                
-                # If not in database, perform online translation
-                if not translation:
-                    try:
                         translation = self._perform_online_translation(word, from_lang, to_lang)
                         if translation:
                             # Save to database
@@ -266,8 +293,6 @@ class TranslationService:
                     translation = self._translate_libretranslate(word, from_lang, to_lang)
                 elif api_name == 'Lingva':
                     translation = self._translate_lingva(word, from_lang, to_lang)
-                elif api_name == 'SimplyTranslate':
-                    translation = self._translate_simplytranslate(word, from_lang, to_lang)
                 elif api_name == 'DeepL':
                     translation = self._translate_deepl(word, from_lang, to_lang)
                 
@@ -292,33 +317,42 @@ class TranslationService:
         
         # List of LibreTranslate endpoints in order of preference
         endpoints = [
-            "https://translate.terraprint.co/translate",
-            "https://lt.vern.cc/translate",
-            "https://translate.fedilab.app/translate",
-            "https://translate.astian.org/translate"
+            "https://lingva.ml/api/v1",  # This one seems to be working well based on logs
+            "https://libretranslate.de/translate",
+            "https://libretranslate.com/translate"
         ]
         
         # Remove translate.argosopentech.com since it consistently fails with name resolution errors
         
         for endpoint in endpoints:
             try:
-                # Standard LibreTranslate API format
-                headers = {'Content-Type': 'application/json'}
-                data = {
-                    'q': word,
-                    'source': from_lang,
-                    'target': to_lang,
-                    'format': 'text'
-                }
-                
-                response = requests.post(endpoint, headers=headers, json=data, timeout=5)
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    if 'translatedText' in result:
-                        return result['translatedText']
+                if "lingva.ml" in endpoint:
+                    # Lingva has a different API format
+                    url = f"{endpoint}/{from_lang}/{to_lang}/{urllib.parse.quote(word)}"
+                    response = requests.get(url, timeout=5)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if 'translation' in data:
+                            return data['translation']
                 else:
-                    logger.debug(f"[LibreTranslate API error] {response.status_code} from {endpoint}")
+                    # Standard LibreTranslate API format
+                    headers = {'Content-Type': 'application/json'}
+                    data = {
+                        'q': word,
+                        'source': from_lang,
+                        'target': to_lang,
+                        'format': 'text'
+                    }
+                    
+                    response = requests.post(endpoint, headers=headers, json=data, timeout=5)
+                    
+                    if response.status_code == 200:
+                        result = response.json()
+                        if 'translatedText' in result:
+                            return result['translatedText']
+                    else:
+                        logger.debug(f"[LibreTranslate API error] {response.status_code} from {endpoint}")
                     
             except Exception as e:
                 logger.error(f"Error with LibreTranslate API ({endpoint}): {e}")
@@ -328,88 +362,33 @@ class TranslationService:
     
     def _translate_lingva(self, word, from_lang='es', to_lang='en'):
         """Translate using Lingva Translate API (unofficial Google Translate API)"""
-        # Try multiple Lingva instances in order of reliability
-        endpoints = [
-            "https://lingva.garudalinux.org/api/v1",
-            "https://lingva.pussthecat.org/api/v1",
-            "https://translate.plausibility.cloud/api/v1"
-        ]
+        url = f"https://lingva.ml/api/v1/{from_lang}/{to_lang}/{word}"
         
-        for endpoint in endpoints:
-            try:
-                url = f"{endpoint}/{from_lang}/{to_lang}/{urllib.parse.quote(word)}"
-                response = requests.get(url, timeout=5)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if 'translation' in data:
-                        return data['translation'].strip()
-            except Exception as e:
-                logger.debug(f"Error with Lingva endpoint {endpoint}: {e}")
-                continue
+        response = requests.get(url, timeout=5)
+        data = response.json()
         
+        if 'translation' in data:
+            return data['translation'].strip()
         return None
     
-    def _translate_simplytranslate(self, word, from_lang='es', to_lang='en'):
-        """Translate using SimplyTranslate API (no API key required)"""
-        # Try multiple SimplyTranslate instances
-        endpoints = [
-            "https://simplytranslate.org",
-            "https://st.tokhmi.xyz",
-            "https://translate.josias.dev"
-        ]
-        
-        for endpoint in endpoints:
-            try:
-                url = f"{endpoint}/api/translate"
-                
-                params = {
-                    'engine': 'google',  # Use Google as the backend engine
-                    'from': from_lang,
-                    'to': to_lang,
-                    'text': word
-                }
-                
-                response = requests.get(url, params=params, timeout=5)
-                
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        if 'translation' in data:
-                            return data['translation'].strip()
-                    except Exception as e:
-                        logger.debug(f"Error parsing SimplyTranslate response: {e}")
-                        continue
-            except Exception as e:
-                logger.debug(f"Error with SimplyTranslate endpoint {endpoint}: {e}")
-                continue
-        
-        return None
-        
     def _translate_deepl(self, word, from_lang='es', to_lang='en'):
         """Translate using DeepL API (free tier)"""
+        # Get API key from https://www.deepl.com/pro#developer
+        api_key = "YOUR_DEEPL_API_KEY"  # Free tier available
         url = "https://api-free.deepl.com/v2/translate"
         
-        # DeepL requires an API key - this is a placeholder for the API key
-        # In a real app, this would be securely stored and retrieved
-        headers = {
-            'Authorization': 'DeepL-Auth-Key YOUR_API_KEY',
-            'Content-Type': 'application/json',
+        params = {
+            "auth_key": api_key,
+            "text": word,
+            "source_lang": from_lang.upper(),
+            "target_lang": to_lang.upper()
         }
         
-        data = {
-            'text': [word],
-            'source_lang': from_lang.upper(),
-            'target_lang': to_lang.upper(),
-        }
+        response = requests.post(url, data=params, timeout=5)
+        data = response.json()
         
-        response = requests.post(url, headers=headers, json=data, timeout=5)
-        
-        if response.status_code == 200:
-            result = response.json()
-            if 'translations' in result and len(result['translations']) > 0:
-                return result['translations'][0]['text']
-        
+        if 'translations' in data and len(data['translations']) > 0:
+            return data['translations'][0]['text'].strip()
         return None
     
     def _check_pending_translations(self):
@@ -448,12 +427,15 @@ class TranslationService:
     def lookup_word(self, word):
         """Look up a word in the database or online if not found"""
         if not word:
-            logger.debug("Empty word passed to lookup_word")
+            if self.debug_mode:
+                print("DEBUG: Empty word passed to lookup_word")
             return "[no translation found]"
         
         try:
             word_lower = word.lower().strip()
-            source_info = ""
+            
+            if self.debug_mode:
+                print(f"DEBUG: Looking up word '{word_lower}'")
             
             # First check in memory cache (fastest)
             if word_lower in self.word_dict:
@@ -465,112 +447,85 @@ class TranslationService:
                     source_info = " [source: cache]"
                     
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' in memory cache{source_info}")
-                    print(f"DEBUG: Found '{word}' in memory cache{source_info}")
+                    print(f"DEBUG: Found '{word}' in memory cache: '{translation}'")
                 return translation
             
-            # Check directly in SQLite translations.db database
-            conn = self._get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", (word_lower,))
-            result = cursor.fetchone()
+            # Check database with thread-safe access
+            if self.debug_mode:
+                print(f"DEBUG: Checking database for '{word_lower}'")
+            
+            try:
+                result = self._execute_query(
+                    "SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", 
+                    (word_lower,)
+                )
             
             if result:
-                translation = result[0]
-                source_info = " [source: database]"
+                    translation = result[0][0]
                 
                 if self.debug_mode:
-                    logger.debug(f"Found '{word}' in translations.db database")
-                    print(f"DEBUG: Found '{word}' in translations.db database")
+                        print(f"DEBUG: Found '{word}' in database: '{translation}'")
                 
                 # Add to memory cache for faster future lookups
                 self.word_dict[word_lower] = {"text": translation, "source": "database"}
                 return translation
-            
-            # If not found locally, check if we're under any API rate limit
-            current_time = time.time()
-            can_translate_now = False
-            
-            # Check if any API is available
-            for api_config in self.translation_apis:
-                with api_config['lock']:
-                    # Remove timestamps older than 1 minute
-                    api_config['timestamps'] = [ts for ts in api_config['timestamps'] 
-                                             if current_time - ts < 60]
-                    if len(api_config['timestamps']) < api_config['max_per_minute']:
-                        can_translate_now = True
-                        break
-            
-            if not can_translate_now:
-                # We're at the rate limit for all APIs, return placeholder and queue for later
-                if self.debug_mode:
-                    logger.debug(f"All APIs rate limited, queueing '{word}' for later translation")
-                    print(f"DEBUG: All APIs rate limited, queueing '{word}' for later translation")
-                
-                # Queue it for later update with a callback that adds to memory cache
-                def update_cache(word_to_update, translation):
-                    if isinstance(translation, dict):
-                        self.word_dict[word_to_update.lower()] = translation
-                    else:
-                        self.word_dict[word_to_update.lower()] = {"text": translation, "source": "delayed_api"}
-                    logger.debug(f"Updated cache with delayed translation for '{word_to_update}'")
-                    # Check if pending translations need UI refresh
-                    self._check_pending_translations()
-                
-                self.queue_translation(word, update_cache)
-                
-                # Add to pending translations
-                self.pending_translations[word] = True
-                
-                return "[translating...]"
-            
-            # We have at least one API under rate limit, do direct online lookup
-            if self.debug_mode:
-                logger.debug(f"Looking up '{word}' online")
-                print(f"DEBUG: Looking up '{word}' online")
-                
-            result = self._perform_online_translation(word_lower)
-            
-            if result and isinstance(result, dict):
-                translation = result["text"]
-                api_used = result["api"]
-                source_info = f" [source: {api_used}]"
-                
-                if self.debug_mode:
-                    logger.debug(f"Found '{word}' online using {api_used}: {translation}")
-                    print(f"DEBUG: Found '{word}' online using {api_used}: {translation}")
-                
-                # Save to database using thread-local connection
-                try:
-                    conn = self._get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        'INSERT OR REPLACE INTO translations (spanish, english) VALUES (?, ?)',
-                        (word_lower, translation)
-                    )
-                    conn.commit()
-                except Exception as db_error:
-                    logger.error(f"Error saving translation to database: {db_error}")
+                else:
                     if self.debug_mode:
-                        print(f"DEBUG: Error saving to database: {str(db_error)[:100]}")
+                        print(f"DEBUG: Word '{word}' not found in database")
+            except Exception as db_error:
+                if self.debug_mode:
+                    print(f"DEBUG: Database query error for '{word}': {db_error}")
+                logger.error(f"Database query error for '{word}': {db_error}")
+            
+            # If not found in database, queue for API translation
+                if self.debug_mode:
+                print(f"DEBUG: Queueing '{word}' for API translation")
+            
+            # Mark as pending to avoid duplicate API calls
+            if word_lower not in self.pending_translations:
+                self.pending_translations[word_lower] = True
+                
+                # Queue it for API translation with a callback that adds to database
+                def update_db_and_cache(word_to_update, translation):
+                    if isinstance(translation, dict):
+                        translation_text = translation["text"]
+                        api_name = translation.get("api", "API")
+                    else:
+                        translation_text = translation
+                        api_name = "API"
+                    
+            if self.debug_mode:
+                        print(f"DEBUG: Saving API translation for '{word_to_update}': '{translation_text}'")
+                
+                    # Save to database
+                try:
+                        self._save_translation_to_db(word_to_update, translation_text)
+                except Exception as db_error:
+                        logger.error(f"Error saving to database: {db_error}")
                 
                 # Add to memory cache
-                self.word_dict[word_lower] = {"text": translation, "source": api_used}
+                    self.word_dict[word_to_update.lower()] = {"text": translation_text, "source": api_name}
+                    
+                    # Remove from pending
+                    if word_to_update.lower() in self.pending_translations:
+                        del self.pending_translations[word_to_update.lower()]
+                    
+                    # Trigger UI refresh
+                    if self.refresh_callback:
+                        self.refresh_callback()
                 
-                return translation
+                self.queue_translation(word, update_db_and_cache)
             
-            if self.debug_mode:
-                logger.debug(f"No translation found for '{word}'")
-                print(f"DEBUG: No translation found for '{word}'")
-            return "[no translation found]"
+            return "[translating...]"
+            
         except Exception as e:
             if self.debug_mode:
-                logger.error(f"Lookup error for '{word}': {e}")
                 print(f"DEBUG: Lookup error for '{word}': {str(e)[:100]}")
+            logger.error(f"Lookup error for '{word}': {e}")
             
             # On error, add to memory cache with an error message to prevent repeated lookups
             self.word_dict[word_lower] = {"text": "[error]", "source": "error"}
-            return "[error]"  # Shorter message that won't cause concatenation errors
+            return "[error]"
     
     def google_translate(self, word, from_lang='es', to_lang='en'):
         """Look up a word using Google Translate API (or free alternative)"""
@@ -687,26 +642,61 @@ class TranslationService:
             
             # Extract the text from the translation if it's a dictionary
             translation_text = translation["text"] if isinstance(translation, dict) else translation
-            # Get the API name if available
-            api_name = translation.get("api", "API") if isinstance(translation, dict) else "API"
-            
-            conn = self._get_db_connection()
-            cursor = conn.cursor()
             
             # Check if word already exists
-            cursor.execute("SELECT spanish FROM translations WHERE spanish=? COLLATE NOCASE", (word.lower(),))
-            exists = cursor.fetchone()
+            exists = self._execute_query(
+                "SELECT spanish FROM translations WHERE spanish=? COLLATE NOCASE", 
+                (word.lower(),)
+            )
             
             if not exists:
-                cursor.execute(
+                self._execute_query(
                     "INSERT OR REPLACE INTO translations (spanish, english) VALUES (?, ?)",
                     (word.lower(), translation_text)
                 )
-                conn.commit()
-                logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}' from {api_name}")
+                logger.debug(f"[Database   ] Saved translation for '{word}': '{translation_text}'")
             
         except Exception as e:
             logger.error(f"[Queue       ] Error saving to database: {e}")
+
+    def close(self):
+        """Close the database connection, ensuring the background thread is stopped first."""
+        logger.info("TranslationService close sequence initiated.")
+        
+        # 1. Signal the background translation thread to stop and wait for it
+        try:
+            if hasattr(self, 'translation_queue') and self.translation_queue is not None:
+                logger.debug("Signaling translation thread to stop by putting None on queue.")
+                self.translation_queue.put(None)
+            else:
+                logger.debug("Translation queue not found or is None.")
+
+            if hasattr(self, 'translation_thread') and self.translation_thread.is_alive():
+                logger.debug(f"Waiting for translation thread (ID: {self.translation_thread.ident}) to join...")
+                self.translation_thread.join(timeout=5.0)  # Wait up to 5 seconds
+                if self.translation_thread.is_alive():
+                    logger.warning("Translation thread did not terminate in the allotted time.")
+                else:
+                    logger.info("Translation thread terminated successfully.")
+            else:
+                logger.debug("Translation thread not found or not alive.")
+        except Exception as e:
+            logger.error(f"Exception during translation thread shutdown: {str(e)}")
+
+        # 2. Close the database connection with proper cleanup
+        if hasattr(self, 'conn') and self.conn is not None:
+            logger.info(f"Closing database connection to {self.db_file}.")
+            try:
+                # Perform a final checkpoint to ensure WAL is merged
+                with self.db_lock:
+                    self._execute_query("PRAGMA wal_checkpoint(FULL);")
+                    self.conn.close()
+                self.conn = None
+                logger.info("Database connection closed successfully.")
+            except Exception as e:
+                logger.error(f"Error during database connection close: {str(e)}")
+        else:
+            logger.info("No active database connection to close or already closed.")
 
 # Core RSS functionality
 class RSSParser:
@@ -1194,7 +1184,7 @@ KV = '''
 
 class ArticleCard(BoxLayout):
     article_title = StringProperty('')
-    article_title_translation = StringProperty('')  
+    article_title_translation = StringProperty('')
     feed_title = StringProperty('')
     feed_url = StringProperty('')
     thumbnail_url = StringProperty('')
@@ -1305,6 +1295,9 @@ class RSSApp(App):
     def build(self):
         Builder.load_string(KV)
         
+        # Bind the window close event
+        Window.bind(on_request_close=self.on_request_close)
+        
         # Create main layout with horizontal orientation
         main_layout = BoxLayout(orientation='horizontal')
         
@@ -1364,86 +1357,78 @@ class RSSApp(App):
             self.rss_layout.ids.feed_grid.add_widget(placeholder)
             return
         
-        # First collect all entries from all feeds
+        # Create a list to store all feed entries
         all_entries = []
+    
+        # Fetch all feeds first
         for feed_data in self.feeds:
-            feed = RSSParser.parse_feed(feed_data['url'])
-            if feed:
-                entries = RSSParser.get_entries(feed)
-                if entries:
-                    for entry in entries[:10]:
-                        all_entries.append((entry, feed_data))
+        feed = RSSParser.parse_feed(feed_data['url'])
+        if feed:
+            entries = RSSParser.get_entries(feed)
+            if entries:
+                    all_entries.extend((entry, feed_data) for entry in entries[:10])
         
-        # Sort by date (newest first)
+        # Sort entries by date (newest first)
         all_entries.sort(key=lambda x: x[0].get('published_parsed', (0,)), reverse=True)
         
-        # Load all entries with placeholder translations
+        # Add cards for all entries
         for entry, feed_data in all_entries:
-            title = entry.get('title', 'No Title')
-            clean_title = RSSParser.clean_html(title)
+                    title = entry.get('title', 'No Title')
+                    clean_title = RSSParser.clean_html(title)
+            title_translation = "[translating...]"
+                    image_url = RSSParser.get_image_url(entry)
+                    if not image_url:
+                        image_url = 'https://via.placeholder.com/300x200'
             
-            # Create stacked title with [translating...] placeholder
-            stacked_title = f"{clean_title}\n[i][color=#777777][translating...][/color][/i]"
+            # Add card immediately
+            self.add_article_card(entry, clean_title, title_translation, image_url, feed_data['title'], feed_data['url'])
             
-            # Get image URL
-            image_url = RSSParser.get_image_url(entry)
-            if not image_url:
-                image_url = 'https://via.placeholder.com/300x200'
-            
-            # Add card with placeholder translation
-            self.add_article_card(entry, stacked_title, image_url, feed_data['title'], feed_data['url'])
-        
-        # Then start translations in a separate thread
-        threading.Thread(target=self._translate_all_titles, args=(all_entries,), daemon=True).start()
+            # Start background translation using the translator instance
+            self.translator.queue_translation(
+                clean_title, 
+                lambda word, translation, e=entry: self._update_article_title(word, translation, e)
+            )
     
-    def _translate_all_titles(self, entries):
-        """Translate all titles after cards are loaded"""
-        for entry, feed_data in entries:
-            title = entry.get('title', 'No Title')
-            clean_title = RSSParser.clean_html(title)
-            
-            # Find the card for this entry
-            card = None
-            for child in self.rss_layout.ids.feed_grid.children[:]:
-                if isinstance(child, ArticleCard) and child.article_link == entry.get('link', '#'):
-                    card = child
-                    break
-            
-            if card:
-                # Translate the title
-                english_line = self.translator.word_for_word_line(clean_title)
-                stacked_title = f"{clean_title}\n[i][color=#777777]{english_line}[/color][/i]"
-                
-                # Update on the main thread
-                Clock.schedule_once(lambda dt, c=card, st=stacked_title: setattr(c, 'article_title', st), 0)
-    
-    def _translate_article_title(self, article, title):
-        """Translate article title and update the card"""
-        # This method is no longer used - translations are now done in _translate_all_titles
-        pass
-    
-    def add_article_card(self, article, title, image_url, feed_title, feed_url):
+    def add_article_card(self, article, title, title_translation, image_url, feed_title, feed_url):
         # Check if card already exists
         for child in self.rss_layout.ids.feed_grid.children[:]:
-            if isinstance(child, ArticleCard) and child.article_link == article.get('link', '#'):
+            if (isinstance(child, ArticleCard) and 
+                child.article_link == article.get('link', '#')):
                 # Update existing card instead of creating a duplicate
-                child.article_title = title
+                english_line = self.translator.word_for_word_line(title)
+                stacked_title = f"{title}\n[i][color=#777777]{english_line}[/color][/i]"
+                child.article_title = stacked_title
                 child.thumbnail_url = image_url
                 return
                 
-        # Create card with title and image
+        # Create the card with proper sizing
         card = ArticleCard(
+            size_hint_y=None,
+            height=dp(150),
             article_title=title,
+            article_title_translation=title_translation,
             feed_title=feed_title,
             feed_url=feed_url,
             thumbnail_url=image_url,
             article_link=article.get('link', '#'),
-            article_content=article.get('summary', ''),
             article=article
         )
         card.bind(on_touch_down=self.on_card_touched)
         self.rss_layout.ids.feed_grid.add_widget(card)
     
+    def _update_article_title(self, word, translation, article):
+        """Update the article title with the new translation"""
+        if not translation or translation == "[no translation found]" or translation == "[error]":
+            return
+            
+        # Find the matching article card and update it
+        for child in self.rss_layout.ids.feed_grid.children[:]:
+            if isinstance(child, ArticleCard) and child.article_link == article.get('link', '#'):
+                english_line = translation
+                stacked_title = f"{word}\n[i][color=#777777]{english_line}[/color][/i]"
+                child.article_title = stacked_title
+                break
+
     def on_card_touched(self, card, touch):
         if card.collide_point(*touch.pos):
             if hasattr(card, 'article') and card.article:
@@ -1843,8 +1828,8 @@ class RSSApp(App):
         
         try:
             # Get all translations
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
+            conn = self.translator.conn
+            cursor = self.translator.conn.cursor()
             
             if search_term:
                 # Search for specific terms
@@ -1906,8 +1891,8 @@ class RSSApp(App):
             
         try:
             # Get current translation data from DB
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
+            conn = self.translator.conn
+            cursor = self.translator.conn.cursor()
             cursor.execute("SELECT english FROM translations WHERE spanish = ?", (word.lower(),))
             result = cursor.fetchone()
             
@@ -1939,8 +1924,8 @@ class RSSApp(App):
             
         try:
             # Save to database
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
+            conn = self.translator.conn
+            cursor = self.translator.conn.cursor()
             
             # Check if word exists
             cursor.execute("SELECT spanish FROM translations WHERE spanish = ?", (word.lower(),))
@@ -1987,8 +1972,8 @@ class RSSApp(App):
             
         try:
             # Delete from database
-            conn = self.translator._get_db_connection()
-            cursor = conn.cursor()
+            conn = self.translator.conn
+            cursor = self.translator.conn.cursor()
             cursor.execute("DELETE FROM translations WHERE spanish = ?", (word.lower(),))
             conn.commit()
             
@@ -2007,6 +1992,22 @@ class RSSApp(App):
             logger.error(f"Error deleting translation: {e}")
             if self.db_editor_screen:
                 self.db_editor_screen.ids.status_label.text = f"Error: {e}"
+
+    def on_stop(self):
+        """Called when the application is exiting."""
+        logger.info("RSSApp.on_stop() called. Closing translator.")
+        if hasattr(self, 'translator') and self.translator:
+            try:
+                self.translator.close()
+                logger.info("Translator closed successfully in on_stop.")
+            except Exception as e:
+                logger.error(f"Error closing translator in on_stop: {e}")
+        logger.info("RSSApp.on_stop() finished.")
+
+    def on_request_close(self, *args):
+        """Called when the window is requested to close."""
+        self.on_stop()
+        return True
 
 if __name__ == '__main__':
     RSSApp().run()

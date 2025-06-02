@@ -107,16 +107,16 @@ abigeo,rustling
 abintestato,intestate
 abiótico,abiotic
 abisagrar,hinge
-abisagre,abyss
+abisagre,abyssegre
 abisal,abyssal
 abisinio,abyssinian
 abismal,abysmal
-abismar,plunge
+abismar,abysse
 abisme,abyss
 abismo,abyss
 abjurar,abjure
 ablación,ablation
-ablandabrevas,softener
+ablandabrevas,softenbrevas
 ablandador,softener
 ablandar,soften
 ablandativo,softening
@@ -124,7 +124,7 @@ ablandecer,soften
 ablanedo,softened
 ablano,soft
 ablativo,ablative
-ablentar,soften
+ablentar,ablent
 ablución,ablution
 abnegar,abnegate
 abocadear,flare
@@ -176,14 +176,14 @@ abolirían,they would abolish
 abolirse,abolish
 aboliste,you abolished
 abolisteis,you abolished
-abollá,doll
+abollá,dololla
 abollad,dent
 abollan,they dent
 abollar,dent
 abollás,dents
 abolle,embossing
-abollé,dent
-abollen,dentn
+abollé,dolle
+abollen,dollen
 abollo,dent
 abolló,dented
 abollonar,dent
@@ -292,7 +292,7 @@ abotonando,buttoning
 abotonar,button
 abotonara,button
 abotonará,will button
-abotonarais,button
+abotonarais,buttonarais
 abotonaran,they will button
 abotonarán,they will button
 abotonarás,you will button
@@ -300,7 +300,7 @@ abotonare,buttoning
 abotonaré,i will button
 abotonareis,you will button
 abotonaréis,you will button
-abotonaren,button
+abotonaren,buttonaren
 abotonaría,would button
 abotonarían,they would button
 abotonaron,they buttoned
@@ -353,7 +353,7 @@ abrelatas,can opener
 ábreme,open me
 abren,they open
 ábrenos,open us
-abrenunciar,open
+abrenunciar,openreport
 abreojos,opens
 ábrete,open up
 abretonar,open
@@ -371,7 +371,7 @@ abría,opened
 abríais,you opened
 abríamos,we opened
 abrían,they opened
-abribonar,shelter
+abribonar,abribonate
 abridero,opener
 abridle,open it
 abridlo,open it
@@ -596,7 +596,7 @@ acabable,finishable
 acabada,finished
 acabado,finish
 acabador,finisher
-acaballadero,place
+acaballadero,acomalladero
 acaballar,finish
 acaballe,finish
 acaballerar,finish
@@ -608,7 +608,7 @@ acabañe,finish
 acabar,finish
 acabe,finish
 acabestrillar,finish shredding
-acabestrille,halter
+acabestrille,acobestrille
 acabildar,finish
 acachetar,slap
 acachorrar,cachorrar
@@ -658,7 +658,7 @@ acaloré,i heated
 acaloren,heat up
 acaloro,heat
 acaloró,heated
-acalumniar,slander
+acalumniar,accalumniate
 acampan,camp
 acampanar,bell
 acanalador,groover
@@ -690,7 +690,7 @@ acarado,caressed
 acaramelar,caramelize
 acaramele,caramels
 acarar,carry
-acardenalar,bruise
+acardenalar,acardenalate
 acariciador,caresser
 acariciar,caress
 acaricie,caress
@@ -711,7 +711,7 @@ acasarado,married
 acaserar,marry
 acasere,mating
 acastillado,chipped
-acastorado,beaver-like
+acastorado,castorated
 acata,abide
 acatable,abide
 acatad,abide
@@ -9651,7 +9651,7 @@ camero,waiter
 camerún,Cameroon
 camiar,barter
 camilla,stretcher
-camillero,stretcher bearer
+camillero,stretcherbearer
 camilo,Camillus
 camina,she walks
 caminá,you walk
@@ -11009,7 +11009,7 @@ caspa,dandruff
 caspio,Caspian
 cáspita,darn it
 casposo,dandruffy
-casque,i fit
+casque,that I fit
 casqué,i fit
 casquero,hat maker
 casquete,skullcap
@@ -11023,7 +11023,7 @@ casta,caste
 castalio,Castalian
 castaña,chestnut
 castañear,crackle
-castañee,i crackle
+castañee,that I crackle
 castañeta,castanet
 castañetear,click castanets
 castaño,brown
@@ -11031,7 +11031,7 @@ castañuela,castanet
 castas,castes
 castel,castle
 castellanamente,in Castilian
-castellanice,you Castilianize
+castellanice,that you Castilianize
 castellanismo,Castilianism
 castellanizar,to Castilianize
 castellanizo,I Castilianize
@@ -11070,7 +11070,7 @@ castrarnos,castrate us
 castraros,castrate yourselves
 castrarte,castrate you
 castrás,you will castrate
-castre,i castrate
+castre,that I castrate
 castré,i castrated
 castren,they castrate
 castrense,military
@@ -11118,7 +11118,7 @@ catan,they taste
 catanga,Katanga
 cataplasma,poultice
 catapultar,catapult
-catapulte,i catapult
+catapulte,that I catapult
 catar,taste
 catarata,cataract
 catarral,catarrhal
@@ -11129,7 +11129,7 @@ catártico,cathartic
 catás,you will taste
 catasalsas,sauce taster
 catascopio,catascope
-cataste,you taste
+cataste,that you taste
 catastral,cadastral
 catastro,cadastre
 catástrofe,catastrophe
@@ -11139,7 +11139,7 @@ catate,taste yourself
 catatónico,catatonic
 cataviento,weather vane
 catavino,wine taster
-cate,i frisk
+cate,that I frisk
 caté,i had
 catead,prospect
 cateador,prospector
@@ -11156,19 +11156,19 @@ catedralicio,cathedral
 catedrar,lecture
 catedrático,professor
 catedrilla,small chair
-catee,i frisk
+catee,that I frisk
 cateé,i frisked
-cateen,they frisk
+cateen,that they frisk
 categoría,category
 categóricamente,categorically
 categórico,categorical
 categorismo,categorism
-caten,they have
+caten,that they have
 catenario,catenary
 catenular,catenulate
 cateo,i frisk
 catequesis,catechesis
-catequice,you catechize
+catequice,that you catechize
 catequismo,catechism
 catequista,catechist
 catequizador,catechizer
@@ -11214,9 +11214,9 @@ caucionad,bail
 caucionan,they bail
 caucionar,bail
 caucionás,you will bail
-caucione,i bail
+caucione,that I bail
 caucioné,i bailed
-caucionen,they bail
+caucionen,that they bail
 cauciono,i bail
 cauda,tail
 caudada,caudal fin stroke
@@ -11249,11 +11249,11 @@ causaros,cause yourselves
 causarte,cause you
 causás,you will cause
 causativo,causative
-cause,i cause
+cause,that I cause
 causé,i caused
 causear,chat
-causee,i chat
-causen,they cause
+causee,that I chat
+causen,that they cause
 causo,i cause
 causticar,cauterize
 causticidad,causticity
@@ -11267,14 +11267,14 @@ cautelar,caution
 cautelé,i was cautious
 cautelo,i am cautious
 cauteloso,cautious
-cauterice,you cauterize
+cauterice,that you cauterize
 cauterio,cautery
 cauterizador,cauterizer
 cauterizar,cauterize
 cauterizo,i cauterize
 cautivador,captivating
 cautivar,captivate
-cautive,i captivate
+cautive,that I captivate
 cautiverio,captivity
 cautivo,captive
 cauto,cautious
@@ -11289,18 +11289,18 @@ cavan,they dig
 cavar,dig
 cavarlo,dig it
 cavás,you will dig
-cave,i dig
+cave,that I dig
 cavé,i dug
 cavéis,you dug
 cavemos,lets dig
-caven,they dig
+caven,that they dig
 caverna,cave
 cavernario,cave dweller
 cavernidad,cavernousness
 cavernoso,cavernous
 cavidad,cavity
 cavilar,ponder
-cavile,i ponder
+cavile,that I ponder
 cavilosamente,thoughtfully
 caviloso,thoughtful
 cavo,i dig
@@ -11322,7 +11322,7 @@ cazallero,hunter
 cazar,hunt
 cazatorpedero,destroyer
 cazcalear,jingle
-cazcalee,i jingle
+cazcalee,that I jingle
 cazcarria,junk
 cazo,pot
 cazolada,spoonful
@@ -11351,9 +11351,9 @@ cebadal,feeding place
 cebadan,they feed
 cebadar,feed
 cebadás,you will feed
-cebade,i feed
+cebade,that I feed
 cebadé,i fed
-cebaden,they feed
+cebaden,that they feed
 cebadero,feeding trough
 cebado,fed
 cebador,lighter
@@ -11367,10 +11367,10 @@ cebándote,feeding yourself
 cebar,feed
 cebarlo,feed it
 cebás,you will feed
-cebe,i feed
+cebe,that I feed
 cebé,i fed
 cebellina,sable
-ceben,they feed
+ceben,that they feed
 cebero,huntsman
 cebo,bait
 cebolla,onion
@@ -11386,7 +11386,7 @@ ceburro,donkey
 ceca,mint
 ceceante,lisping
 cecear,lisp
-cecee,i lisp
+cecee,that I lisp
 ceceoso,lisping
 cecina,dried meat
 ceciná,dry it
@@ -11394,13 +11394,13 @@ cecinad,dry
 cecinan,they dry
 cecinar,dry
 cecinás,you will dry
-cecine,i dry
+cecine,that I dry
 ceciné,i dried
-cecinen,they dry
+cecinen,that they dry
 cecino,i dry
 ceda,cede
 cedacear,sift
-cedacee,i sift
+cedacee,that I sift
 cedacero,sieve maker
 cedáis,you cede
 cedan,they cede
@@ -11408,7 +11408,7 @@ cedazo,sieve
 cedé,i yielded
 ceded,cede
 cedéis,you yielded
-ceden,they cede
+ceden,that they cede
 ceder,cede
 cederla,cede it
 cederlo,cede it
@@ -11575,7 +11575,7 @@ cendrazo,ash cloud
 cendre,i sift
 cendren,they sift
 cendro,i sift
-cene,i sup
+cene,that I sup
 ceñe,i gird
 cenefa,valance
 cenegar,become marshy
@@ -12338,7 +12338,7 @@ chicharran,they sizzle
 chicharrar,sizzle
 chicharrás,you will sizzle
 chicharre,sizzling
-chicharré,it sizzles
+chicharré,that it sizzles
 chicharrear,crackle
 chicharree,i crackle
 chicharren,they crackle
@@ -12374,7 +12374,7 @@ chiflar,whistle
 chiflás,you will whistle
 chiflato,crazy
 chifle,whistling
-chiflé,it whistle
+chiflé,that it whistle
 chíflele,whistle him
 chífleme,whistle me
 chiflen,they whistle
@@ -12419,7 +12419,7 @@ chincharos,bug them
 chincharte,bug you
 chinchás,you will bug
 chinche,bedbug
-chinché,it bugs
+chinché,that it bugs
 chinchen,they bug
 chincheta,thumbtack
 chincho,bedbug
@@ -12531,7 +12531,7 @@ chistan,they joke
 chistar,joke
 chistás,you will joke
 chiste,joke
-chisté,it jokes
+chisté,that it jokes
 chisten,they joke
 chistera,top hat
 chisto,joke
@@ -12559,7 +12559,7 @@ chivatee,i snitch
 chivato,snitch
 chivaza,great thing
 chive,snitching
-chivé,it snitches
+chivé,that it snitches
 chiven,they snitch
 chivillo,kid
 chivo,billy goat
@@ -12608,7 +12608,7 @@ chopear,dip
 chopee,i dip
 chopo,poplar
 choque,shock
-choqué,it collides
+choqué,that it collides
 chóquelo,check it
 chóquenlo,check it
 chorar,steal
@@ -12663,7 +12663,7 @@ chufan,they mock
 chufar,mock
 chufás,you will mock
 chufe,plug
-chufé,it mocks
+chufé,that it mocks
 chufen,they mock
 chufero,chauffeur
 chufeta,joke
@@ -13383,9 +13383,9 @@ cobijé,i covered
 cobijen,they cover
 cobijera,bedspread
 cobijo,shelter
-cobra,charges
+cobra,chargescollects
 cobrá,chargecollect
-cobraban,they were charging
+cobraban,they were chargingcollecting
 cobrable,collectable
 cobrad,collect
 cobradero,place of collection
@@ -13394,11 +13394,11 @@ cobrador,collector
 cobráis,you chargecollect
 cobramos,we chargecollect
 cobran,they chargecollect
-cobrando,charging
+cobrando,chargingcollecting
 cobranza,collection
 cobrar,chargecollect
 cobrará,will chargecollect
-cobraran,they charged
+cobraran,they chargedcollected
 cobrarán,they will chargecollect
 cobrarás,you will chargecollect
 cobrare,i chargecollect
@@ -13408,23 +13408,23 @@ cobraría,would chargecollect
 cobrarla,chargecollect it
 cobrarlo,chargecollect ithim
 cobrarme,chargecollect me
-cobraron,they charged
+cobraron,they chargedcollected
 cobraros,chargecollect you
 cobrarse,get revenge
 cobrarte,chargecollect you
 cobras,you chargecollect
 cobrás,you chargecollect
-cobrasen,they charged
-cobraste,you charged
+cobrasen,they chargedcollected
+cobraste,you chargedcollected
 cobre,copper
-cobré,i charged
+cobré,i chargedcollected
 cobrear,copperplate
 cobree,i copperplate
 cobréis,you copperplate
 cobremos,we copperplate
 cobren,they copperplate
 cobrizo,coppery
-cobro,collection
+cobro,collectioncharge
 cocá,coca
 cocad,censure
 cocaína,cocaine
@@ -13452,7 +13452,7 @@ cocedura,boilingcooking
 cocee,i kick
 coceé,i kicked
 coceen,they kick
-cocelo,i kick it
+cocelo,i kick ithim
 coceo,kicking
 cocer,boilcook
 cocerlo,cook ithim
@@ -13560,14 +13560,14 @@ coged,take
 cogedero,handle
 cogederos,handles
 cogedla,take herit
-cogedlo,take it
+cogedlo,take ithim
 cogedme,take me
 cogednos,take us
 cogedor,catcher
 cogedura,takinggrip
 cogela,take herit
 cógela,freeze ither
-cogelo,take it
+cogelo,take ithim
 cógelo,freeze ithim
 cogeme,take me
 cógeme,catch me
@@ -13577,7 +13577,7 @@ cógenos,catch us
 cogeos,take yourselvesyou take
 coger,takecatch
 cogerla,take herit
-cogerlo,take it
+cogerlo,take ithim
 cogerme,take me
 cogernos,take us
 cogeros,take yourselves
@@ -13601,7 +13601,7 @@ cognominar,nickname
 cognoscible,knowable
 cognoscitivo,cognitive
 cogollero,cabbage farmer
-cogollo,heart of lettuce
+cogollo,heart of lettucecabbage
 cogorza,hoarseness
 cogotera,hangover
 cogotes,napes of necks
@@ -13634,7 +13634,7 @@ coimbricense,from Coimbra
 coime,bribe
 coimear,bribe
 coimee,i bribe
-coinquinar,stain
+coinquinar,staincontaminate
 coipo,coypu
 coitar,copulate
 coite,i copulate
@@ -13658,7 +13658,7 @@ cojines,cushions
 cojinete,small cushion
 cojitranco,lame
 cojo,lame
-cojonudo,fantastic
+cojonudo,fantasticexcellent
 cojos,lame people
 cojuelo,oneeyed
 cok,coke
@@ -14232,7 +14232,7 @@ comisionista,commission agent
 comiso,seizure confiscation
 comisó,seized
 comisquear,nibble
-comisquee,you nibble
+comisquee,that you nibble
 comistrajo,messy food
 comité,committee
 comitente,principal client
@@ -14274,7 +14274,7 @@ compaginar,combine
 compaginarlo,combine it
 compaginás,you combine
 compagine,you combine
-compaginé,i combine
+compaginé,that Iyou combine
 compaginen,they combine
 compagino,i combine
 compaginó,combined
@@ -14475,7 +14475,7 @@ comprante,buyer
 comprar,buy
 compraría,i would buy
 compraventa,trading
-compre,i buy
+compre,that I buy
 comprehender,comprehend
 comprehensivo,comprehensive
 comprende,understands
@@ -17355,7 +17355,7 @@ cuadrillos,small squares
 cuadrilongo,rectangle
 cuadrimestre,fourmonth period
 cuadringentésimo,four hundredth
-cuadrinieto,great great grandson
+cuadrinieto,greatgreatgrandson
 cuadrinomio,quadrinomial
 cuadriplicar,quadruple
 cuadriplico,i quadruple
@@ -20184,9 +20184,9 @@ diecinueve,nineteen
 diecinueveavo,nineteenth
 dieciochavo,eighteenth
 dieciocheno,eighteenth
-dieciochesco,eighteenth century
+dieciochesco,eighteenthcentury
 dieciochismo,eighteenth century
-dieciochista,eighteenth century person
+dieciochista,eighteenthcentury person
 dieciocho,eighteen
 dieciochoavo,eighteenth
 dieciséis,sixteen
@@ -22534,7 +22534,7 @@ empadre,you register
 empadronador,registrar
 empadronar,register
 empadrone,you register
-empalagad,sicken sick
+empalagad,make feel sick
 empalagado,sickly sweet
 empalagando,making feel sick
 empalagoso,sickly sweet
@@ -26744,7 +26744,7 @@ espalder,back
 espalditendido,lying flat
 espaldón,shoulder
 espaldonar,lean back
-espaldudo,broad shouldered
+espaldudo,broadshouldered
 espale,back
 espalera,staircase
 espalmador,palmer
@@ -26955,11 +26955,11 @@ espera,waithope
 esperaban,they expected
 esperable,expectable
 esperad,wait
-esperada,expected
+esperada,expectedawaited
 esperadlo,wait for him
 esperadme,wait for me
 esperadnos,wait for us
-esperado,expected
+esperado,expectedawaited
 esperalo,wait for him
 esperame,wait for me
 esperan,they expect
@@ -28503,7 +28503,7 @@ falconete,falconet
 falda,skirt
 faldar,skirt
 faldear,skirt
-faldee,i skirt
+faldee,that I skirt
 faldellín,short skirt
 faldero,skirt wearer
 faldeta,small skirt
@@ -28521,7 +28521,7 @@ falerno,Falernian wine
 falible,fallible
 falisco,Faliscan
 fallar,fail
-falle,i die
+falle,that I die
 falleba,latch
 fallecé,i died
 falleced,you die
@@ -28534,7 +28534,7 @@ fallezco,i die
 fallido,failed
 fallo,failed
 falo,phallus
-falque,i mow
+falque,that I mow
 falqué,i mowed
 falsa,false
 falsabraga,codpiece
@@ -28544,7 +28544,7 @@ falsario,forger
 falsarregla,false rule
 falseador,forger
 falsear,forge
-falsee,i forge
+falsee,that I forge
 falseo,forgery
 falsete,falsetto
 falsía,falsehood
@@ -28554,7 +28554,7 @@ falsifico,i falsify
 falso,false
 falsopeto,false friend
 faltar,lack
-falte,i lack
+falte,that I lack
 falto,lacking
 faltoso,faulty
 faltrero,pickpocket
@@ -28563,7 +28563,7 @@ faluca,felucca
 fama,fame
 famélico,famished
 familia,family
-familiarice,i familiarize
+familiarice,that I familiarize
 familiarizar,familiarize
 familiarizo,i familiarize
 familiarmente,familiarly
@@ -28571,7 +28571,7 @@ famoso,famous
 fanal,lantern
 fañar,work hard
 fanáticamente,fanatically
-fanatice,i fanaticize
+fanatice,that I fanaticize
 fanático,fanatic
 fanatismo,fanaticism
 fanatizador,fanaticizer
@@ -28585,12 +28585,12 @@ fanegada,fanega
 faneguero,bushel maker
 fanerógamo,phanerogam
 fanfarrear,boast
-fanfarree,i boast
+fanfarree,that I boast
 fanfarria,fanfare
 fanfarrón,boaster
 fanfarronada,boast
 fanfarronear,boast
-fanfarronee,i boast
+fanfarronee,that I boast
 fanfarronesca,boastful
 fangal,muddy place
 fango,mud
@@ -28599,7 +28599,7 @@ fano,temple
 fanos,temples
 fantaseador,fantasizer
 fantasear,fantasize
-fantasee,i fantasize
+fantasee,that I fantasize
 fantasía,fantasy
 fantasioso,fanciful
 fantasma,ghost
@@ -28613,7 +28613,7 @@ fantoche,puppet
 faquir,fakir
 far,lighthouse
 farabustear,swindle
-farabustee,i swindle
+farabustee,that I swindle
 farachar,dress up
 faradio,farad
 faralá,flounce
@@ -28633,7 +28633,7 @@ fardad,you boast
 fardan,they boast
 fardar,boast
 fardás,you boast
-farde,i boast
+farde,that I boast
 fardé,i boasted
 fardel,bundle
 fardeles,bundles
@@ -28644,7 +28644,7 @@ fárfara,coltsfoot
 farfolla,frill
 farfullador,mumbler
 farfullar,mumble
-farfulle,i mumble
+farfulle,that I mumble
 farfullero,mumbler
 faringe,pharynx
 faríngeo,pharyngeal
@@ -28668,7 +28668,7 @@ fárrago,farrago
 farragoso,confused
 farraguista,hodgepodge maker
 farrear,revel
-farree,i revel
+farree,that I revel
 farro,spelt
 farruco,flamenco dancer
 farsa,farce
@@ -28680,7 +28680,7 @@ fasciculado,fasciculated
 fascinador,fascinating
 fascinante,fascinating
 fascinar,fascinate
-fascine,i fascinate
+fascine,that I fascinate
 fascismo,fascism
 fascista,fascist
 fase,phase
@@ -28688,7 +28688,7 @@ fases,phases
 faso,Burkina Faso
 fasquiar,loathe
 fastidiar,annoy
-fastidie,i annoy
+fastidie,that I annoy
 fastidio,annoyance
 fastidiosamente,annoyingly
 fastidioso,annoying
@@ -28751,7 +28751,7 @@ febroniano,Febronian
 fecha,date
 fechador,dater
 fechar,date
-feche,i date
+feche,that I date
 fecho,dated
 fechoría,misdeed
 fécula,starch
@@ -28763,8 +28763,8 @@ fecundamente,fertilely
 fecundar,fertilize
 fecundarse,be fertilized
 fecundativo,fertilizing
-fecunde,i fertilize
-fecundice,i fertilize
+fecunde,that I fertilize
+fecundice,that I fertilize
 fecundizador,fertilizer
 fecundizar,fertilize
 fecundizo,fertile
@@ -28782,16 +28782,16 @@ federar,federate
 federás,you federate
 federativa,federative
 federativo,federative
-federe,i federate
+federe,that I federate
 federé,i federated
-federen,they federate
+federen,that they federate
 federico,Frederick
 federo,i federate
 federó,it federated
 fehaciente,authentic
 feldespato,feldspar
 felicitar,congratulate
-felicite,i congratulate
+felicite,that I congratulate
 felicitó,congratulated
 félido,feline
 feligrés,parishioner
@@ -28806,7 +28806,7 @@ felpa,plush
 felpad,plush
 felpudo,plush
 femar,brand
-feme,i brand
+feme,that I brand
 femenil,feminine
 femenino,feminine
 fementido,false
@@ -28822,7 +28822,7 @@ fenecé,i died
 fenecer,die
 fenestra,window
 fenicar,revive
-fenice,i revive
+fenice,that I revive
 fenicio,Phoenician
 fénico,phenol
 fénix,phoenix
@@ -28845,7 +28845,7 @@ ferir,wound
 fermentador,fermenter
 fermentar,ferment
 fermentativo,fermentative
-fermente,i ferment
+fermente,that I ferment
 fermento,ferment
 feroz,ferocious
 ferozmente,ferociously
@@ -28854,14 +28854,14 @@ ferrad,you shoe
 ferrador,farrier
 ferrar,shoe
 ferrás,you shoe
-ferre,i shoe
+ferre,that I shoe
 ferré,i shod
 ferreña,iron
 férreo,iron
 ferrero,blacksmith
 ferrete,brand
 ferretear,brand
-ferretee,i brand
+ferretee,that I brand
 ferretero,hardware store
 férrico,ferric
 ferrita,ferrite
@@ -28876,7 +28876,7 @@ ferroviario,railway
 ferrugiento,rusty
 ferruginoso,ferruginous
 fértil,fertile
-fertilice,i fertilize
+fertilice,that I fertilize
 fertilidad,fertility
 fertilizador,fertilizer
 fertilizante,fertilizer
@@ -28898,7 +28898,7 @@ fes,F sharp
 festa,festival
 festear,court
 festejar,celebrate
-festeje,i celebrate
+festeje,that I celebrate
 festejo,celebration
 festín,feast
 festinar,hasten
@@ -28907,7 +28907,7 @@ festivo,festive
 festón,festoon
 festonar,festoon
 festonear,festoon
-festonee,i festoon
+festonee,that I festoon
 fetiche,fetish
 fetichismo,fetishism
 fetichista,fetishist
@@ -37675,7 +37675,7 @@ lincharos,lynch you
 lincharte,lynch you
 linchás,you lynch
 linché,i lynched
-linchen,they lynch
+linchen,that they lynch
 lincho,i lynch
 linchó,she lynched
 lincurio,lynx
@@ -41699,7 +41699,7 @@ morosamente,slowly
 morosidad,slowness in payment
 moroso,slow payer
 morque,that sheit die
-morqué,i die
+morqué,that I die
 morquera,fireplace
 morra,snout
 morrada,butt
@@ -43722,7 +43722,7 @@ ojival,ogival
 ojizaino,blueeyed
 ojizarco,lighteyed
 ojo,eye
-ojoche,porthole
+ojoche,ojo de buey
 ojosa,full of eyes
 ojoso,full of eyes
 ojota,sandal
@@ -46008,7 +46008,7 @@ pegote,blob
 pegotear,stick
 pegotee,stick
 pegue,hit
-pegué,i hit
+pegué,that I hit
 peguero,gunsmith
 pegujal,sticky place
 peguntad,ask
@@ -48287,7 +48287,7 @@ ponimiento,setting
 ponlo,put it
 pontana,springfountain
 pontazgo,bridge tollpontage
-pontear,bridge
+pontear,bridgeto span
 pontee,bridge yourselfspan
 pontezuelo,small bridge
 póntico,ponticbridgelike
@@ -48299,7 +48299,7 @@ pontificio,pontifical
 pontifico,pontiff
 pontín,small bridge
 ponto,pontoon
-pontón,pontoon bridge
+pontón,pontoonbridge of boats
 pontonero,pontoon bridge builder
 ponzoña,poisonvenom
 ponzoñoso,poisonousvenomous
@@ -48348,7 +48348,7 @@ pordiosee,beg
 pordiosero,beggar
 porfiadamente,stubbornly
 porfiador,stubborn person
-porfiar,insist
+porfiar,insistto persist
 porfíe,insistpersist
 porfirice,become purplishturn purple
 porfirizar,make purplish
@@ -48389,7 +48389,7 @@ porrea,beatingthrashing
 porreá,beatthrash
 porread,beatthrash
 porrean,they beatthrash
-porrear,beat
+porrear,beatto thrash
 porreás,you beatthrash
 porree,beatthrash
 porreé,beatthrash
@@ -48441,11 +48441,11 @@ portamos,we carry
 portan,they carry
 portanario,pylon
 portando,carryingbehaving
-portándome,behaving myself
-portándonos,behaving ourselves
-portándoos,behaving yourselves
-portándose,behaving
-portándote,behaving yourself
+portándome,carrying myselfbehaving myself
+portándonos,carrying ourselvesbehaving ourselves
+portándoos,carrying yourselvesbehaving yourselves
+portándose,carrying himselfherselfitselfbehaving himselfherselfitselfthemselves
+portándote,carrying yourselfbehaving yourself
 portante,bearingsupporting
 portantes,bearingsupporting
 portañuela,small doorhatch
@@ -48454,13 +48454,13 @@ portaobjeto,microscope slide
 portaos,carry yourselvesbehave yourselves
 portapliegos,dispatches carrier
 portaplumas,pen holder
-portar,carry
+portar,carryto behave
 portarais,you would carry
 portáramos,we would carry
 portaran,they would carry
 portarán,they will carry
 portarás,you will carry
-portaré,i will carry
+portaré,Iyou will carry
 portareis,you will carry
 portaréis,you will carry
 portaremos,we will carry
@@ -48646,7 +48646,7 @@ posponer,postpone
 pospositivo,postpositive
 pospuesto,postponed
 posta,poststagecoach
-postar,station
+postar,stationto post
 postdata,postscript
 postdiluviano,postdiluvian
 poste,postpole
@@ -49228,7 +49228,7 @@ preterís,you omit
 preteriste,you omitted
 preteristeis,you omitted
 pretérito,preterite
-pretermite,pretermit
+pretermite,usted pretermit
 pretermitir,pretermit
 preternaturalice,preternaturalize
 preternaturalizar,preternaturalize
@@ -49314,7 +49314,7 @@ primás,you love
 primavera,spring
 primaveral,spring
 primazgo,primacy
-prime,excel
+prime,usted excels
 primé,i excelled
 primear,excel
 primee,excel
@@ -49379,7 +49379,7 @@ príngate,get yourself messy
 pringo,i mess
 pringoso,sticky
 pringote,splatter
-pringue,mess
+pringue,usted mess
 pringué,i messed
 prionodonte,prionodont
 prioradgo,priory
@@ -49423,7 +49423,7 @@ privatizarlo,privatize it
 privatizás,privatize
 privatizo,i privatize
 privatizó,privatized
-prive,deprive
+prive,usted deprive
 privilegiar,privilege
 privilegiativo,privileging
 privilegie,privilege
@@ -53500,7 +53500,7 @@ salador,salty
 salados,salty
 saladura,salty
 salalo,salt it
-sálalo,salt it
+sálalo,salto it
 salamandra,salamander
 salamandrino,salamander
 salamanqueja,gecko
@@ -57336,7 +57336,7 @@ tastar,taste
 tasto,taste
 tasugo,badger
 tatarabuelo,greatgreatgrandfather
-tataranieto,great great grandson
+tataranieto,greatgreatgrandson
 tatarear,stammer
 tataree,stammer
 tatuar,tattoo
@@ -61809,7 +61809,7 @@ venoso,venous
 venta,sale
 ventad,blast of air
 ventaja,advantage
-ventajee,i give advantage
+ventajee,i givehave advantage
 ventajista,opportunist
 ventajosa,advantageous
 ventajosamente,advantageously
@@ -62341,7 +62341,7 @@ vindico,i vindicate
 vindicó,i vindicated
 vindicta,revenge
 vindique,i vindicate
-vindiqué,i vindicate
+vindiqué,that I vindicate
 vine,i came
 viñedo,vineyard
 viñeta,vignette
@@ -63557,7 +63557,7 @@ buscártelo,search for
 busquémonos,lets search for
 cabalgá,it rides
 cabañil,pertaining to a
-cabé,fit
+cabé, fit
 cabestrá,will halter
 cabestré,haltered
 cabestrear,lead by
@@ -63596,7 +63596,7 @@ calentárnoslo,warm it
 calentároslo,warm it
 calentárselo,warm it
 calentártelo,warm it
-callanten,they keep
+callanten,that they keep
 callantó,kept calling
 callarle,silence
 callármelo,silence it
@@ -63670,7 +63670,7 @@ cantale,sing to
 cántale,sing to
 cantaleaba,i was chanting
 cantaleara,i would chant
-cantaleare,chant
+cantaleare, chant
 cantalearía,i would chant
 cantámelo,sing it to
 cántamelo,sing it to
@@ -63678,7 +63678,7 @@ cantándole,singing to
 cantánoslo,sing it to
 cántanoslo,sing it to
 cantara,i would sing
-cantare,may sing
+cantare, may sing
 cantaría,i would sing
 cantarle,sing to
 cantármelo,sing it
@@ -63686,7 +63686,7 @@ cantárnoslo,sing it
 cantároslo,sing it to
 cantárselo,sing it
 cantártelo,sing it
-cantase,might sing
+cantase, might sing
 cántaselo,sing it to
 cantoná,it will sing
 canturía,it hummed
@@ -63756,7 +63756,7 @@ cascárselo,tell off
 cascártelo,tell you
 casó,married
 casquetada,blow to the
-castañetee,i click
+castañetee,that I click
 castra,castrates
 castrá,castrate
 castró,castrated
@@ -63766,16 +63766,16 @@ cateá,frisk
 catedralidad,status of a
 cateó,frisked
 cató,hunted
-catolice,i convert
+catolice,that I convert
 catolicé,i converted to
-catolicen,they convert
+catolicen,that they convert
 catoliza,converts to Catholicism
 catolizan,they convert to
 catolizar,convert to
 catolizás,you will convert
 catolizo,i convert to
 catolizó,converted to Catholicism
-catonice,you act
+catonice,that you act
 catonizar,act like
 catonizo,i act like
 cauciona,bails
@@ -63786,17 +63786,17 @@ causarle,cause
 causó,caused
 cautel á,caution
 cautelás,you will be
-cautele,i am
-cautelen,they are
+cautele,that I am
+cautelen,that they are
 cauteló,was cautious
 cava,digs
 cavó,dug
 cayapear,use a
-cayapee,i use
+cayapee,that I use
 cayéndole,falling to
 cayó,fell
-cazoletee,i handle
-cazurree,i be
+cazoletee,that I handle
+cazurree,that I be
 cebadazo,large amount of
 cebadó,fed
 cebarle,feed
@@ -63813,62 +63813,62 @@ cederte,yield to
 cedértelo,yield it
 cedía,it yielded
 cediéndole,yielding to it
-cedió,yielded
+cedió, yielded
 cejá,it will frown
-cejé,frowned
-cejó,frowned
+cejé, frowned
+cejó, frowned
 celá,it will watch
-celé,concealed
+celé, concealed
 celebrá,it will celebrate
 celebrándole,celebrating it
 celebrarle,celebrate it
-celebré,celebrated
-celebró,celebrated
+celebré, celebrated
+celebró, celebrated
 celeminear,measure with
 celeminee,you measure with
 celeminero,one who measures
-celó,concealed
+celó, concealed
 cená,it will have
 ceña,it will gird
 cenagar,stick in
 cendrá,it will sift
-cendré,sifted
-cendró,sifted
-cené,supped
+cendré, sifted
+cendró, sifted
+cené, supped
 ceñía,it girded
-cenó,supped
+cenó, supped
 censa,it registers
 censá,it will register
-censé,registered
-censó,registered
+censé, registered
+censó, registered
 centenar,gather by
 centiloquio,collection of one
 centonar,write a
 centra,it centers
 centrá,it will center
-centraba,was centering
-centralicé,centralized
+centraba, was centering
+centralicé, centralized
 centraliza,it centralizes
 centralizá,it will centralize
-centralizó,centralized
-centrara,had centered
-centrará,would center
-centraré,will have
-centraría,would center
-centré,centered
-centró,centered
+centralizó, centralized
+centrara, had centered
+centrará, would center
+centraré, will have
+centraría, would center
+centré, centered
+centró, centered
 cepillá,it will brush
 cepillarle,brush it
-cepillé,brushed
-cepilló,brushed
+cepillé, brushed
+cepilló, brushed
 cercá,it will be
-cercaba,was near
-cercara,would fence
-cercará,would fence
-cercaré,will have
-cercaría,would fence
-cercén,cut off
-cercó,fenced
+cercaba, was near
+cercara, would fence
+cercará, would fence
+cercaré, will have
+cercaría, would fence
+cercén, cut off
+cercó, fenced
 cernió,sifted
 cerradle,close it to
 cerradme,close it to
@@ -63945,16 +63945,16 @@ citaba,was citing
 citará,will cite
 clasifica,it classifies
 clasificó,it classified
-clasifique,may
-clausule,may
-clausure,may
+clasifique,that I may
+clausule,that I may
+clausure,that I may
 clavármelo,nail it
 clavárnoslo,nail it
 clavároslo,nail it
 clavárselo,nail it
 clavártelo,nail it
-claven,they may
-clavetee,may
+claven,that they may
+clavetee,that I may
 clavó,it nailed
 climatiza,it acclimatizes
 clisterice,you give an
@@ -63964,10 +63964,10 @@ clocó,clucked
 coaguló,coagulated
 cobijó,covered
 cobista,supporter of the
-cobraba,was charging
-cobrara,charged
-cobrase,i charged
-cobró,charged
+cobraba,was chargingcollecting
+cobrara,chargedcollected
+cobrase,i chargedcollected
+cobró,chargedcollected
 cocacho,slap on the
 cocarar,strike with
 coceó,kicked
@@ -63978,8 +63978,8 @@ coclear,take with
 cocote,top of the
 codaste,you gave an
 codastes,you gave an
-codear,elbow
-codee,i elbowed
+codear,elbowrub elbows
+codee,i elbowedrubbed elbows
 codicilar,add a
 codició,coveted
 codificó,codified
@@ -63988,20 +63988,20 @@ cofradero,member of a
 cofrear,put in
 coge,takes
 cogerle,take from
-cogérmelo,take it
+cogérmelo,take ithim
 cogérnoslo,take it
 cogérselo,take it
-cogértelo,take it
+cogértelo,take ithim
 cogía,was taking
-cogiéndole,taking it from
-cogió,took
+cogiéndole,taking ithim from
+cogió,tookcaught
 cogolmar,strike on
 cogote,nape of the
 cohonder,conceal a
 colarle,strain for
 colarme,strain for
 colarnos,strain for
-colaros,strain yourselves for
+colaros,strain yourselvesfor
 colchó,quilted
 colear,wag the
 colectó,collected
@@ -64025,14 +64025,14 @@ colocaba,placed
 colocara,would place
 colocará,will place
 colocaría,would place
-colocase,i placed myself
+colocase,i placed myselfhimselfherself
 colocó,placed
 colonizó,colonized
 coloraba,colored
 colorara,would color
 colorará,will color
 coloraría,would color
-colorase,i colored myself
+colorase,i colored myselfhimselfherself
 coloría,would color
 coloriera,had colored
 coloriese,i colored
@@ -64051,12 +64051,12 @@ comediar,perform a
 comedirá,will be moderate
 comediré,i will be
 comerle,eat it
-cometé,ate
-cómete,eat it
-cometen,they commit
+cometé, ate
+cómete,do itstart doing
+cometen,they commit they
 cometer,commit to
-cometí,i committed
-cometo,i commit
+cometí,i committed I
+cometo,i commit I
 comichear,work in
 comiéndole,eating 
 comiéndomelo,eating it from
@@ -64066,8 +64066,8 @@ comiéndoselo,eating it from
 comiéndotelo,eating it from
 cominear,impose a
 cominee,one who is
-comió,ate
-comiquear,act comically
+comió, ate
+comiquear,perform standup
 comisá,will seize
 comisar,seize to
 comisé,i seized
@@ -64085,29 +64085,29 @@ compaginá,it will combine
 comparece,appears
 compasá,it will measure
 compasar,measure to
-compasé,measure
-compelé,compelled
-compenetrar,understand deeply
-compenetre,understand
+compasé, measure
+compelé, compelled
+compenetrar,penetrate to
+compenetre,penetrate understand each
 compensá,it will compensate
 compensándole,compensating
 compensarle,compensate it
-compensé,compensated
+compensé, compensated
 competer,be incumbent
 completá,will complete
 completaba,i was completing
-completara,had completed
-completará,would complete
-completaren,complete
+completara, had completed
+completará, would complete
+completaren, complete
 completaría,it would complete
-completase,completed
-completé,completed
+completase, completed
+completé, completed
 complutense,from Alcalá de
 componer,compose to
-componerla,fix it
+componerla,fix itthe
 componerle,fix it
 compostelano,from Santiago de
-comprendé,i understand
+comprendé,that Iyou understand
 compulsar,compel to
 comulgá,it will receive
 comunicá,it will communicate
@@ -64645,14 +64645,14 @@ empajar,cover with
 empajolar,cover with
 empajole,you cover with
 empalaga,makes feel sick
-empalagá,will sicken
+empalagá,will make feel
 empalagaba,i used to
 empalagabais,you used to
 empalagaban,they used to
-empalagáis,you sicken
-empalagamos,we sicken
-empalagan,they sicken
-empalagar,sicken
+empalagáis,you make feel
+empalagamos,we make feel
+empalagan,they make feel
+empalagar,make feel
 empalagara,i would make
 empalagará,i would make
 empalagarais,you would make
@@ -64666,21 +64666,21 @@ empalagaréis,you will make
 empalagaren,they will make
 empalagaría,i would make
 empalagarían,they would make
-empalagaron,they sickened
+empalagaron,they made feel
 empalagarse,get sick
-empalagas,you sicken
-empalagás,you sicken
-empalagase,i sickened
-empalagaseis,you sickened
-empalagasen,they sickened
-empalagaste,you sickened
-empalago,i sicken
+empalagas,you make feel
+empalagás,you make feel
+empalagase,i made feel
+empalagaseis,you made feel
+empalagasen,they made feel
+empalagaste,you made feel
+empalago,i make feel
 empalagó,made feel sick
-empalague,you sicken
-empalagué,i sickened
-empalaguéis,you sicken
-empalaguemos,lets sicken
-empalguen,they sicken
+empalague,you make feel
+empalagué,i made feel
+empalaguéis,you make feel
+empalaguemos,lets make feel
+empalguen,they make feel
 empaliar,put up
 empalicar,fence with
 empalice,you fence with
@@ -64894,14 +64894,14 @@ encierro,confinement running of
 encimar,place on
 enclavijar,pin key
 enclavijé,i pinned keyed
-enclavijo,i pin
+enclavijo,i pin I
 encobar,put in
 encofrar,formwork to
 encogollar,shrink the
 encohetar,tie with
 encojar,limp to
 encolar,glue to
-encolé,i glued
+encolé,i glued I
 enconarme,inflame me
 enconarnos,inflame us
 enconaros,inflame you
@@ -65112,38 +65112,38 @@ fajó,girded
 falcó,mowed
 fallece,dies
 falleció,died
-fallezca,fail
-false,forge
-fañe,work
-farache,dress
+fallezca,that I may
+false,that forges
+fañe,that I work
+farache,that I dress
 farandulear,be a
-farandulee,act
+farandulee,that I be
 fardó,boasted
-farolee,show
+farolee,that I show
 farsantear,play the
-farsantee,play
+farsantee,that I play
 favorece,favors
 favorecerle,favor
 favoreció,favored
-favorezca,may
+favorezca,that I may
 felpan,they cover with
 felpar,cover with
 felpás,you cover with
-felpe,i cover
+felpe,that I cover
 felpé,i covered with
 felpear,cover with
-felpee,i cover
-felpen,they cover
+felpee,that I cover
+felpen,that they cover
 felpo,i cover with
 felpó,covered with plush
 fenece,dies
 feriar,hold a
-ferie,i hold
+ferie,that I hold
 ferrificar,convert into
 ferrifico,i convert into
 ferró,shod
-fervorice,i be
-fervoricen,they be
+fervorice,that I be
+fervoricen,that they be
 fervoriza,makes fervent
 fervorizá,you will make
 fervorizó,made fervent
@@ -65198,15 +65198,15 @@ integra,it integrates
 integrarle,integrate to it
 interesaba,it interested
 interesara,it would interest
-interesase,would interest
+interesase, would interest
 interesó,it interested
 interinar,act as
 intoxica,it intoxicates
-intoxicó,intoxicated
+intoxicó, intoxicated
 inventa,it invents
 inventaba,it was inventing
 inventara,it would invent
-inventase,invented
+inventase, invented
 inverna,winters
 irguieran,they might straighten
 irguiere,it might straighten
@@ -65218,10 +65218,10 @@ irguieseis,you might straighten
 irguiésemos,we might straighten
 irguiesen,they might straighten
 irguió,it straightened up
-iría,would go
+iría, would go
 itera,it iterates
 itere,it may iterate
-iteré,iterated
+iteré, iterated
 iteró,it iterated
 iza,it hoists
 izó,it hoisted
@@ -65229,7 +65229,7 @@ jabalconar,pursue wild
 jabelgar,fish with
 jabona,it soaps
 jabone,it may soap
-jaboné,soaped
+jaboné, soaped
 jabonó,it soaped
 jaece,it lies down
 jaeza,it harnesses
@@ -65237,18 +65237,18 @@ jaezó,it harnessed
 jala,it pulls
 jalbega,it whitewashes
 jalbegó,it whitewashed
-jalbegué,whitewashed
+jalbegué, whitewashed
 jambra,it jambs
-jambré,jambed
+jambré, jambed
 jambró,it jambed
 jamerdar,soil with
 jaquimazo,blow with a
 jarcia,it rigs
 jarcie,it may rig
-jarcié,rigged
+jarcié, rigged
 jarció,it rigged
 jarreta,it hamstrings
-jarreté,hamstrung
+jarreté, hamstrung
 jarretó,it hamstrung
 jiferada,stroke of bad
 jimelga,twelfth part of
@@ -65322,13 +65322,13 @@ juzga,judges
 juzgándole,judging
 juzgarle,judge
 juzgó,it judged
-juzgue,i judge
+juzgue,Iyou judge
 júzguelo,judge it
 júzguenlo,judge it
 labora,it works
 laborá,it will work
-labore,i work
-laboree,i work hard
+labore,Iyou work
+laboree,Iyou work hard
 laboró,it worked
 labra,it plows
 labrá,it will plow
@@ -65337,66 +65337,66 @@ labrarme,plow for
 labrarnos,plow for
 labraros,plow for
 labrarte,plow for
-labre,i plow
+labre,Iyou plow
 labró,it plowed
-lace,i lace
+lace,Iyou lace
 lacé,i adorn with
 lacear,adorn with
-lacee,i adorn with
-lacere,i lacerate
+lacee,Iyou adorn with
+lacere,Iyou lacerate
 lacrar,seal with
-lacte,i lactate
-ladee,i tilt
+lacte,Iyou lactate
+ladee,Iyou tilt
 ladra,it barks
 ladrá,it will bark
-ladre,i bark
+ladre,Iyou bark
 ladrillá,it will pave
-ladrille,i pave
+ladrille,Iyou pave
 ladrilló,it paved
 ladró,it barked
-ladronee,i steal
+ladronee,Iyou steal
 lagarear,work at
-lagaree,i work at
+lagaree,Iyou work at
 lagartada,bite of a
-lagotee,i flatter
-lagrime,i tear up
-lagrimee,i tear up
-lambe,i lick
-lambisquee,i nibble
-lambrucee,i nibble
-lambucee,i nibble
-lame,i lick
-lamente,i lament
+lagotee,Iyou flatter
+lagrime,Iyou tear up
+lagrimee,Iyou tear up
+lambe,Iyou lick
+lambisquee,Iyou nibble
+lambrucee,Iyou nibble
+lambucee,Iyou nibble
+lame,Iyou lick
+lamente,Iyou lament
 laminá,it will laminate
-lamine,i laminate
+lamine,Iyou laminate
 laminó,it laminated
 lamió,it licked
 lampa,it shines
 lampá,it will shine
-lampacee,i flash
-lampe,i shine
-lampee,i shine
+lampacee,Iyou flash
+lampe,Iyou shine
+lampee,Iyou shine
 lampó,it shone
 lamprear,fish for
-lampree,i fish for
+lampree,Iyou fish for
 lampuguera,net for catching
 lancea,it throws
 lanceá,it will throw
-lancee,i throw
+lancee,Iyou throw
 lanceó,it threw
 lanchar,transport by
-lancine,i lancinate
-lañe,i lasso
+lancine,Iyou lancinate
+lañe,Iyou lasso
 lanzá,it will throw
 lanzó,it threw
 lapachar,cover with
-lapice,i pencil
-lapide,i stone
+lapice,Iyou pencil
+lapide,Iyou stone
 lapizar,cover with
 lapizo,i cover with
 lapo,blow with the
-laque,i lacquer
-laquee,i lacquer
+laque,Iyou lacquer
+laquee,Iyou lacquer
 larda,it lards
 lardá,it will lard
 larde,it gets fat
@@ -65495,7 +65495,7 @@ lienta,stringy part of
 ligó,tied
 lijó,sanded
 limazo,big stroke with
-limosnee,may
+limosnee,that I may
 limpiándole,cleaning it
 limpiándomelo,cleaning it to
 limpiándonoslo,cleaning it to
@@ -65503,11 +65503,11 @@ limpiándooslo,cleaning it to
 limpiándoselo,cleaning it to
 limpiándotelo,cleaning it to
 limpiarle,clean it
-limpie,may
+limpie,that I may
 lincear,see very
-lincee,you see
+lincee,that you see
 lincharle,lynch
-linche,i lynch
+linche,that Iyou lynch
 lineaba,she was drawing
 lineabais,you were drawing
 lineábamos,we were drawing
@@ -65524,44 +65524,44 @@ lineareis,you will draw
 linearéis,you will draw
 linearemos,we will draw
 lineáremos,we will draw
-linearen,they may
+linearen,that they may
 linearía,she would draw
 linearíais,you would draw
 linearíamos,we would draw
 linearían,they would draw
 linearse,draw lines
-linease,i draw
-lineaseis,you draw
+linease,that Iyou draw
+lineaseis,that you draw
 lineásemos,that we might
-lineasen,they might
-linee,i draw
-lineéis,you draw
-lineen,they draw
+lineasen,that they might
+linee,that Iyou draw
+lineéis,that you draw
+lineen,that they draw
 lipemaniaco,one with profound
-liquide,i pay off
-lisie,i may
-lisonjee,i may
-liste,i may
-listen,they may
-listone,i may
-listonen,they may
+liquide,Iyou pay off
+lisie,that Iyou may
+lisonjee,that Iyou may
+liste,that Iyou may
+listen,that they may
+listone,that Iyou may
+listonen,that they may
 litisexpensas,costs of a
 litispendencia,pendency of a
 litofotografiar,take aerial
-litofotografíe,i may
-litografíe,i may
+litofotografíe,that Iyou may
+litografíe,that Iyou may
 litrarieo,of an unknown
-lixivie,i leach
-llame,i call
-llamee,i may
-llande,i cry
+lixivie,that Iyou leach
+llame,that Iyou call
+llamee,that Iyou may
+llande,that Iyou cry
 llanear,whine to
-llanee,i whine
-llape,i patch
-llavee,i carry
-llegue,i may
-lleguen,they may
-llenaren,they may
+llanee,that Iyou whine
+llape,that Iyou patch
+llavee,that Iyou carry
+llegue,that Iyou may
+lleguen,that they may
+llenaren,that they may
 llenó,it filled
 llevará,it will carry
 llorándole,crying to it
@@ -65690,30 +65690,30 @@ mejorá,will improve
 mejoraba,was improving
 mejorara,would improve
 mejorará,would improve
-mejoraría,would improve
-mejorase,improved
-mejore,improve
-mejoró,improved
-melancolice,make melancholic
+mejoraría, would improve
+mejorase, improved
+mejore, improve
+mejoró, improved
+melancolice, make melancholic
 melancoliza,it makes melancholic
 melancolizó,it made melancholic
-melgue,thin out
+melgue, thin out
 meliáceo,of the mahogany
-melindree,be coy
-melle,notch
+melindree, be coy
+melle, notch
 memora,it memorizes
-memore,memorize
-memorice,memorize
+memore, memorize
+memorice, memorize
 memoró,it memorized
-mene,stir
-menee,stir
-mengue,diminish
-mengüe,diminish
-menoscabe,detract
-menosprecie,despise
-menstrúe,menstruate
-mensure,measure
-mentalice,focus
+mene, stir
+menee, stir
+mengue, diminish
+mengüe, diminish
+menoscabe, detract
+menosprecie, despise
+menstrúe, menstruate
+mensure, measure
+mentalice, focusfocuses
 mentándole,lying to it
 mentarle,lie to
 mentarme,lie to
@@ -65725,23 +65725,23 @@ mentároslo,lie to
 mentárselo,lie to
 mentarte,lie to
 mentártelo,lie to
-mentía,was lying
+mentía, was lying
 mentó,it mentioned
-menudee,occur frequently
+menudee, occur frequently
 meó,it urinated
-mercadee,trade
-mercantilice,commercialize
+mercadee, trade
+mercantilice, commercialize
 mercendear,work as
-mercerice,mercerize
-mere,deserve
+mercerice, mercerize
+mere, deserve
 merece,it deserves
 merecerá,it will deserve
 merecería,would deserve
 merecía,deserved
 mereciera,had deserved
 mereciere,should deserve
-mereciese,might have deserved
-mereciesen,they might have deserved
+mereciese,deservedmight have
+mereciesen,they deservedmight have
 mereció,it deserved
 merendar,have a
 merendille,snack
@@ -65856,11 +65856,11 @@ moscan,they drive away
 moscar,drive away
 mosco,i drive away
 moscó,she drove away
-mosque,i drive
-mosqué,i swatted
+mosque,that I drive
+mosqué,that I swatted
 mosqueá,she will swat
 mosquear,annoy to
-mosquee,i annoy
+mosquee,i annoy I
 mostellar,smell of
 mostrarle,show it
 mostrarme,show myself
@@ -66064,19 +66064,19 @@ parta,may it leave
 pártanlo,may they break
 partear,assist in
 partee,i assist in
-partiera,had left
-partiere,should leave
-partiese,might leave
+partiera, had left
+partiere, should leave
+partiese, might leave
 partirá,it will leave
-pasaba,was passing
+pasaba, was passing
 pasaportar,provide with
-pasara,would pass
+pasara, would pass
 pasarme,happen to
 pasarnos,happen to
 pasaros,happen to
 pasarse,go too
 pasarte,happen to
-pasase,might pass
+pasase, might pass
 pastelear,dabble in
 pastelee,pastry
 patea,kicks
@@ -66241,30 +66241,30 @@ píquenle,sting it
 píquenlo,sting it
 pisa,it steps on
 pisá,it steps on
-pisaba,was stepping
+pisaba, was stepping
 pisaban,they were stepping
-pisara,stepped on
-pisará,will step
+pisara, stepped on
+pisará, will step
 pisarán,they will step
 pisarás,you will step
-pisare,will step
-pisaré,will step
-pisaría,would step
+pisare, will step
+pisaré, will step
+pisaría, would step
 pisarse,step on
-pisase,stepped on
+pisase, stepped on
 pispar,catch a
 pita,it whistles
 pitarle,whistle at
 pitarlo,whistle at
 plancharle,iron it
 planchazo,blow with an
-plantaba,was planting
-plantara,planted
-plantará,will plant
-plantare,will plant
-plantaré,will plant
-plantaría,would plant
-plantase,planted
+plantaba, was planting
+plantara, planted
+plantará, will plant
+plantare, will plant
+plantaré, will plant
+plantaría, would plant
+plantase, planted
 planteá,it will pose
 planteándole,posing to
 plantillan,they use a
@@ -66284,7 +66284,7 @@ podaría,would prune
 podé,i was able
 poden,they are able
 poderse,be able
-podía,could
+podía, could
 podó,it pruned
 podrá,it will be
 podrán,they will be
@@ -66329,7 +66329,7 @@ ponga,putit may put
 póngale,put on it
 pongámonos,lets put on
 pónganle,put it on
-ponía,used to
+ponía, used to
 poniéndomela,putting it on
 poniéndomelo,putting it on
 poniéndonosla,putting it on
@@ -66345,52 +66345,52 @@ ponleví,put it lightly
 pónmelo,put it on
 pónnoslo,put it on
 pónselo,put it on
-ponte,put on
+ponte,put yourself onbridgeput
 popamiento,running aground by
 popan,of or relating
 popar,run aground
 popen,of or relating
-populariza,popularizes
+populariza,popularizes popularizes
 porcelanita,small piece of
-porfirizo,i make porphyry
-pormenorizar,detail
+porfirizo,i porfirizeI make
+pormenorizar,detailto itemizeto
 porquezuela,very young female
 porretada,blow with a
 portaba,carried
 portamanteo,carrying a person
-portapaz,kiss of peace
+portapaz,paxkiss of peace
 portara,it would carry
-portará,will carry
-portare,may carry
-portaría,would carry
-portarme,carry myself
-portaros,carry yourselves
-portarse,carry oneself
-portarte,carry yourself
-portase,might carry
-portea,carries
-portémonos,lets carry ourselves
-portemos,lets carry
+portará, will carry
+portare, may carry
+portaría, would carry
+portarme,carry myselfto
+portaros,carry yourselvesto
+portarse,carry oneselfto
+portarte,carry yourselfto
+portase, might carry
+portea,carriesit carries
+portémonos,lets carry ourselveslets
+portemos,lets carrywe may
 portó,it carried
 portuense,from El Puerto
-portuguesada,Portuguese like 
-posa,places
+portuguesada,Portuguese like expression 
+posa,placesit places
 posaba,it was placing
-posar,place
+posar,placeto perchto
 posara,it would place
-posará,will place
-posare,may place
+posará, will place
+posare, may place
 posaría,it would place
-posarse,place oneself
+posarse,place oneselfto
 posase,it might place
 posea,it may possess
 poseí,i used to
-poseía,used to
+poseía, used to
 poseyó,it possessed
-posibilita,enables
-posibilitaba,made possible
+posibilita,enablesit enables
+posibilitaba, made possible
 posibilitara,it would enable
-posibilitará,will enable
+posibilitará,will enableyou will
 posibilitare,it may enable
 posibilitaría,it would enable
 posibilitarle,enable it
@@ -66450,9 +66450,9 @@ presentir,have a
 presione,it press
 presionó,it pressed
 presta,lends
-preste,lend
+preste,usted lend
 prestigia,it gives prestige
-prestigie,give prestige
+prestigie,usted give prestige
 prestigió,it gave prestige
 prestó,it lent
 pretería,it omitted
@@ -66606,7 +66606,7 @@ subordinó,subordinated
 substanciá,substantiates
 substanció,substantiated
 suburense,resident of a
-sudó,sweat
+sudó,it sweat
 sugestionarme,suggest to
 sugestionarnos,suggest to
 sugestionaros,suggest to
@@ -66687,7 +66687,7 @@ tazó,assessed
 techa,it roofs
 tecle,it types
 teclee,it types
-tedero,torch holder
+tedero,place where torches
 tegeo,i give a
 tegeos,you give a
 tegual,kind of wild
@@ -66711,16 +66711,16 @@ temperá,it will temper
 tempestee,it storms
 templa,it tempers
 templá,it will temper
-templaba,used to
+templaba, used to
 templabais,you used to
 templaban,they used to
-templara,would temper
+templara, would temper
 templará,it would temper
-templase,would temper
+templase, would temper
 templaseis,you would temper
 templasen,they would temper
-temporeje,temporize
-temporice,temporize
+temporeje, temporize
+temporice, temporize
 temporiza,it temporizes
 temporizá,it will temporize
 tempranear,wake up
@@ -66745,20 +66745,20 @@ tendérselo,will tend it
 tenderte,tend to
 tendértela,will tend it
 tendértelo,will tend it
-tendía,used to
+tendía, used to
 tendiéndole,stretching it out
 tendiéndomelo,stretching it out
 tendiéndonoslo,stretching it out
 tendiéndooslo,stretching it out
 tendiéndoselo,stretching it out
 tendiéndotelo,stretching it out
-tendiera,would tend
-tendiere,should tend
-tendiese,would tend
+tendiera, would tend
+tendiere, should tend
+tendiese, would tend
 tendrá,it will have
-tendría,would have
+tendría, would have
 tenerle,have to
-tenga,hasmay have
+tenga, hasmay have
 teñía,was dyeing
 teniéndole,having
 teñirle,dye it
@@ -66923,29 +66923,29 @@ tramá,it will plot
 tramó,it plotted
 trancá,it will bar
 trancó,it barred
-tranque,calm down
+tranque, calm down
 tranquea,it calms down
 tranqueá,it will calm
 tranqueás,you will calm
 tranqueé,i may calm
 tranqueó,it calmed down
-tranquilice,calm down
+tranquilice, calm down
 tranquilicé,i will calm
 tranquilicen,they may calm
 tranquiliza,it calms
 tranquilizá,it will calm
-tranquilizaba,used to
+tranquilizaba, used to
 tranquilizaban,they used to
-tranquilizara,had calmed
+tranquilizara, had calmed
 tranquilizará,it will calm
-tranquilizaría,would calm
+tranquilizaría, would calm
 tranquilizó,it calmed
 transgrede,it transgresses
 transige,it compromises
 translimitar,exceed the
 transmita,it may transmit
 transmite,it transmits
-transmití,transmit
+transmití, transmit
 transmitía,it would transmit
 transmitiéndole,transmitting to it
 transmitió,it transmitted
@@ -67002,14 +67002,14 @@ tumben,they may knock
 tumultue,i may stir
 tumultué,it may stir
 tumultuen,they may stir
-tuviera,might have
-tuviere,may have
-tuviese,might have
+tuviera, might have
+tuviere, may have
+tuviese, might have
 ubica,it locates
-unce,anoints
-unciera,might anoint
-unciere,may anoint
-unciese,might anoint
+unce, anoints
+unciera, might anoint
+unciere, may anoint
+unciese, might anoint
 uncirá,it will anoint
 une,youit unites
 unile,unite it
@@ -67110,61 +67110,61 @@ vendiere,should sell
 vendiese,i might sell
 vendió,you sold
 vendó,it bandaged
-vengá,may come
-vengándome,avenging myself
-vengándonos,avenging ourselves
-vengándoos,avenging yourselves
-vengándote,avenging yourself
+vengá,may  come
+vengándome,avenging myselfgetting revenge
+vengándonos,avenging ourselvesgetting revenge
+vengándoos,avenging yourselvesgetting revenge
+vengándote,avenging yourselfgetting revenge
 vengarle,to avenge 
-vengó,avenged
-vengue,may
+vengó, avenged
+vengue,that I may
 venirme,to come to
 venirnos,to come to
 veniros,to come to
 venirte,to come to
 ventá,may it blow
-ventajear,to give advantage
+ventajear,to givehave advantage
 ventanear,to look out
 ventanee,i look out
 ventear,to expose to
 ventee,i expose to
-ventisquee,may
+ventisquee,that I may
 ventorrero,frequenter of roadside
 venza,may it conquer
-verá,will see
+verá, will see
 verbenero,one who celebrates
 verbera,it beats
-verberá,will beat
+verberá, will beat
 verberé,i will beatI
 verberó,it beat
 verdece,it turns green
 verdecía,it used to
 verdeciñó,i surrounded with
-verdee,may
-verdeguee,may
+verdee,that I may
+verdeguee,that I may
 verdezca,may it turn
-verguee,may
-verilee,may
+verguee,that I may
+verilee,that I may
 verle,to see 
 vérmelo,to see it
 vérnoslo,to see it
 véroslo,to see it
 verraquear,to act like
-verraquee,may
+verraquee,that I may
 verruguetar,to cover with
 versa,it deals with
 versá,may it pour
-versee,may
+versee,that I may
 vérselo,to see it
 versen,may they deal
 versó,it dealt with
-vertebre,may
+vertebre,that I may
 vértelo,pour it for
 vertía,it used to
 vertíais,you used to
 vertíamos,we used to
 vertían,they used to
-vertió,poured
+vertió, poured
 vestía,it was dressing
 vestirle,to dress you
 viaticar,to provide travel
@@ -67174,7 +67174,7 @@ viéndonoslo,seeing it to
 viéndooslo,seeing it to
 viéndoselo,seeing it to
 viéndotelo,seeing it to
-vierta,pour
+vierta, pour
 vierte,it pours
 vigila,it watches
 vigilá,will watch
