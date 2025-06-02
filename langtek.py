@@ -220,23 +220,23 @@ class TranslationService:
                 # If not in database, perform online translation
                 if not translation:
                     try:
-                # Rate limiting - ensure we don't exceed max_requests_per_minute
-                with self.queue_lock:
-                    current_time = time.time()
-                    # Remove timestamps older than 1 minute
-                    self.request_timestamps = [ts for ts in self.request_timestamps 
-                                              if current_time - ts < 60]
-                    
-                    if len(self.request_timestamps) >= self.max_requests_per_minute:
-                        # We've hit our rate limit, wait until we can make another request
-                        sleep_time = 60 - (current_time - self.request_timestamps[0])
-                        if sleep_time > 0:
-                            logger.debug(f"Rate limiting: waiting {sleep_time:.2f}s before next translation")
-                            time.sleep(sleep_time)
-                    
-                    # Add the current timestamp
-                    self.request_timestamps.append(time.time())
-                
+                        # Rate limiting - ensure we don't exceed max_requests_per_minute
+                        with self.queue_lock:
+                            current_time = time.time()
+                            # Remove timestamps older than 1 minute
+                            self.request_timestamps = [ts for ts in self.request_timestamps 
+                                                      if current_time - ts < 60]
+                            
+                            if len(self.request_timestamps) >= self.max_requests_per_minute:
+                                # We've hit our rate limit, wait until we can make another request
+                                sleep_time = 60 - (current_time - self.request_timestamps[0])
+                                if sleep_time > 0:
+                                    logger.debug(f"Rate limiting: waiting {sleep_time:.2f}s before next translation")
+                                    time.sleep(sleep_time)
+                            
+                            # Add the current timestamp
+                            self.request_timestamps.append(time.time())
+                        
                         translation = self._perform_online_translation(word, from_lang, to_lang)
                         if translation:
                             # Save to database
@@ -244,8 +244,8 @@ class TranslationService:
                                 self._save_translation_to_db(word, translation)
                             except Exception as save_error:
                                 logger.error(f"Queue: Error saving to database: {save_error}")
-                    except Exception as translate_error:
-                        logger.error(f"Queue: Translation error: {translate_error}")
+                    except Exception as error:
+                        logger.error(f"Queue: Translation error: {error}")
                 
                 # Call the callback with the result
                 if callback:
@@ -459,16 +459,16 @@ class TranslationService:
                     "SELECT english FROM translations WHERE spanish = ? COLLATE NOCASE", 
                     (word_lower,)
                 )
-            
-            if result:
+                
+                if result:
                     translation = result[0][0]
-                
-                if self.debug_mode:
+                    
+                    if self.debug_mode:
                         print(f"DEBUG: Found '{word}' in database: '{translation}'")
-                
-                # Add to memory cache for faster future lookups
-                self.word_dict[word_lower] = {"text": translation, "source": "database"}
-                return translation
+                    
+                    # Add to memory cache for faster future lookups
+                    self.word_dict[word_lower] = {"text": translation, "source": "database"}
+                    return translation
                 else:
                     if self.debug_mode:
                         print(f"DEBUG: Word '{word}' not found in database")
@@ -478,7 +478,7 @@ class TranslationService:
                 logger.error(f"Database query error for '{word}': {db_error}")
             
             # If not found in database, queue for API translation
-                if self.debug_mode:
+            if self.debug_mode:
                 print(f"DEBUG: Queueing '{word}' for API translation")
             
             # Mark as pending to avoid duplicate API calls
@@ -494,16 +494,16 @@ class TranslationService:
                         translation_text = translation
                         api_name = "API"
                     
-            if self.debug_mode:
+                    if self.debug_mode:
                         print(f"DEBUG: Saving API translation for '{word_to_update}': '{translation_text}'")
-                
+                    
                     # Save to database
-                try:
+                    try:
                         self._save_translation_to_db(word_to_update, translation_text)
-                except Exception as db_error:
+                    except Exception as db_error:
                         logger.error(f"Error saving to database: {db_error}")
-                
-                # Add to memory cache
+                    
+                    # Add to memory cache
                     self.word_dict[word_to_update.lower()] = {"text": translation_text, "source": api_name}
                     
                     # Remove from pending
@@ -1362,10 +1362,10 @@ class RSSApp(App):
     
         # Fetch all feeds first
         for feed_data in self.feeds:
-        feed = RSSParser.parse_feed(feed_data['url'])
-        if feed:
-            entries = RSSParser.get_entries(feed)
-            if entries:
+            feed = RSSParser.parse_feed(feed_data['url'])
+            if feed:
+                entries = RSSParser.get_entries(feed)
+                if entries:
                     all_entries.extend((entry, feed_data) for entry in entries[:10])
         
         # Sort entries by date (newest first)
@@ -1373,12 +1373,12 @@ class RSSApp(App):
         
         # Add cards for all entries
         for entry, feed_data in all_entries:
-                    title = entry.get('title', 'No Title')
-                    clean_title = RSSParser.clean_html(title)
+            title = entry.get('title', 'No Title')
+            clean_title = RSSParser.clean_html(title)
             title_translation = "[translating...]"
-                    image_url = RSSParser.get_image_url(entry)
-                    if not image_url:
-                        image_url = 'https://via.placeholder.com/300x200'
+            image_url = RSSParser.get_image_url(entry)
+            if not image_url:
+                image_url = 'https://via.placeholder.com/300x200'
             
             # Add card immediately
             self.add_article_card(entry, clean_title, title_translation, image_url, feed_data['title'], feed_data['url'])
