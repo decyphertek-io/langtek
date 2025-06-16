@@ -2812,7 +2812,7 @@ ajear,ajar
 ajedrecista,chess player
 ajedrez,chess
 ajedrezado,checkered
-ajena,other
+ajena,external
 ajenar,end
 ajenjo,wormwood
 ajeno,foreign
@@ -7483,7 +7483,7 @@ available,accessible
 avance,advance
 aviar,avian
 avisan,they warn
-ayuda,aid
+ayuda,help
 ayudá,help
 ayudale,help him
 ayúdale,help him
@@ -15682,6 +15682,11 @@ conexidad,connection
 conexión,connection
 conexionar,connect
 conexo,connected
+conozca,i know
+conozcamos,we know
+conozcan,they know
+conozco,i know
+confalonier,standardbearer
 confalonier,standardbearer
 confaloniero,standardbearer
 confección,clothing
@@ -16776,6 +16781,7 @@ controlo,i control
 controló,he controlled
 controversia,controversy
 controversista,controversialist
+construyendo,constructing
 controvertir,controvert
 contubernio,conspiracy
 contumacia,contumacy
@@ -35401,7 +35407,7 @@ huyéndoos,running away
 huyéndote,running away
 huyo,i flee
 huyó,he fled
-ia,ia
+ia,ai
 iba,i was
 ibais,you went
 íbamos,we were going
@@ -35784,7 +35790,7 @@ impreco,curse
 impregnar,impregnate
 impregne,impregnates
 imprenta,printing press
-impresa,company
+impresa,printed
 imprescindible,essential
 impresión,impression
 impresiona,impresses
@@ -44984,7 +44990,7 @@ narria,sledge
 narval,narwhal
 narvaso,large turnip
 ñas,dodges
-nasa,pot
+nasa,nasa/fish trap
 nasalice,proboscis monkey
 nasalizar,nasalize
 nasalizo,i nasalize
@@ -45800,7 +45806,7 @@ nutrís,you nourish
 nutritivo,nutritive
 nutriz,nurse
 nutro,i nourish
-o,either
+o,or
 obcecar,blind
 obceco,i blind
 obedece,obeys
@@ -50806,7 +50812,7 @@ pobretee,impoverish
 pobreto,poor little thing
 pobretón,very poor person
 pobrismo,impoverishment
-poca,little
+poca,bit
 pocero,well digger
 pocho,rotten
 pochote,ceiba tree
@@ -50853,7 +50859,7 @@ podemos,we can
 poden,they are able
 podenco,hound
 podenquero,hound breeder
-poder,can
+poder,power
 poderdante,grantor
 poderes,powers
 poderhabiente,attorney
@@ -52603,11 +52609,12 @@ profiláctico,prophylactic
 profilaxis,prophylaxis
 profligar,squander
 prófugo,fugitive
+profunda,profound
 profundice,deepen
 profundizado,deepened
 profundizar,deepen
 profundizo,i deepen
-profundo,deep
+profundo,profound
 profusamente,profusely
 profusión,profusion
 profuso,profuse
@@ -53071,6 +53078,7 @@ puebla,it populates
 pueble,village
 pueblerino,small town
 pueblo,village
+pueda,can/may
 puedan,they can
 puede,can
 púede,can
@@ -53279,7 +53287,7 @@ puntilloso,punctilious
 puntisecar,pointdry
 puntiseco,pointiseco
 puntito,dot
-punto,spot
+punto,point
 puntó,he point
 puntoso,dotted
 puntual,punctual
@@ -55488,7 +55496,7 @@ retórico,rhetorical
 retornar,return
 retornelo,return it
 retorrománico,romanesque
-retorromano,roman torre
+retorromano,roman tower
 retorsivo,retorsive
 retorta,retort
 retortijar,twist
@@ -64678,6 +64686,7 @@ usame,use me
 úsame,use me
 usamos,we use
 usan,they use
+usando,using
 usándolo,using it
 usándome,using me
 usándonos,using us
